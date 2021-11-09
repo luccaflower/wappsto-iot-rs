@@ -3,5 +3,12 @@
 set -o errexit
 set -o pipefail
 
+if ! hash conventional_commits_linter 2> /dev/null
+then
+    cargo install conventional_commits_linter
+    exit
+fi
+
+
 cat "$1" | "conventional_commits_linter"\
     --from-stdin --allow-angular-type-only
