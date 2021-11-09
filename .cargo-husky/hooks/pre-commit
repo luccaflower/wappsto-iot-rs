@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo '+cargo test'
+cargo test
+echo '+cargo clippy -- -D warnings'
+cargo clippy -- -D warnings
+echo '+cargo fmt -- --check'
+cargo fmt -- --check
+
+
