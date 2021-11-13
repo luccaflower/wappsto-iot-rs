@@ -2,6 +2,7 @@
 name = "wappsto-iot-rs"
 version = "0.1.0"
 edition = "2021"
+authors = ["Bartosz Urban", "Lucca Christiansen"]
 
 [dependencies]
 
