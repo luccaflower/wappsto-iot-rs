@@ -1,0 +1,33 @@
+name: wappsto-iot-rs
+on: [push]
+jobs:
+  Validate_And_Build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+
+      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+
+      - name: Check out repository code
+        uses: actions/checkout@v2
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Run Cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+      - name: Run Cargo build with --release
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --all-features
+
+      # - uses: actions/upload-artifact@v2
+      #   with:
+      #     name: release-lib
+      #     path: ./target/release/
