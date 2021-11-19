@@ -3,7 +3,6 @@ use wappsto_iot_rs::schema::Schema;
 use wappsto_iot_rs::schema_store;
 
 #[test]
-#[ignore]
 fn saves_network_schema_to_data_store() {
     let id = Uuid::new_v4();
 
