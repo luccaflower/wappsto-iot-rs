@@ -11,7 +11,8 @@ pub fn save(schema: Schema) {
         .unwrap();
 
     serde_json::to_writer(
-        &File::create("network_instance/".to_owned() + &schema.id.to_string() + ".json").unwrap(),
+        &File::create("network_instance/".to_owned() + &schema.meta.id.to_string() + ".json")
+            .unwrap(),
         &schema,
     )
     .unwrap();

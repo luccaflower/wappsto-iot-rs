@@ -3,13 +3,21 @@ use uuid::Uuid;
 
 #[derive(Serialize, Deserialize)]
 pub struct Schema {
-    pub id: Uuid,
+    pub meta: Meta,
     pub device: Vec<Device>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Meta {
+    pub id: Uuid,
 }
 
 impl Schema {
     pub fn new(id: Uuid) -> Schema {
-        Schema { id, device: vec![] }
+        Schema {
+            meta: Meta { id },
+            device: vec![],
+        }
     }
 }
 
@@ -28,7 +36,7 @@ impl SchemaBuilder {
 
     pub fn create(self) -> Schema {
         Schema {
-            id: self.id,
+            meta: Meta { id: self.id },
             device: self.device,
         }
     }
