@@ -17,11 +17,17 @@ pub fn save(schema: Schema) {
     )
     .unwrap();
 }
-pub fn load(id: Uuid) -> Option<Schema> {
-    println!("{}", &id);
-    serde_json::from_str(
-        &read_to_string("network_instance/".to_owned() + &id.to_string() + ".json")
-            .expect("File not found"),
-    )
-    .unwrap()
+pub fn load(id: Uuid) -> Result<Schema, LoadError> {
+    let contents = match read_to_string("network_instance/".to_owned() + &id.to_string() + ".json")
+    {
+        Ok(s) => s,
+        Err(_) => return Err(LoadError),
+    };
+    match serde_json::from_str(&contents) {
+        Ok(s) => Ok(s),
+        Err(_) => Err(LoadError),
+    }
 }
+
+#[derive(Debug)]
+pub struct LoadError;

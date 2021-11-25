@@ -8,5 +8,5 @@ fn saves_network_schema_to_data_store() {
 
     let schema = Schema::new(id);
     schema_store::save(schema);
-    assert!(schema_store::load(id).is_some())
+    assert!(schema_store::load(id).is_ok())
 }
