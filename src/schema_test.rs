@@ -40,4 +40,10 @@ mod device_builder {
         let device = DeviceBuilder::new().named("test".to_owned()).create();
         assert_eq!("test", device.name)
     }
+
+    #[test]
+    fn can_add_a_value_to_the_device() {
+        let device = DeviceBuilder::new().add_value(Value::default()).create();
+        assert!(!device.value.is_empty())
+    }
 }

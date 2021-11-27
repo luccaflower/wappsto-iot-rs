@@ -55,6 +55,12 @@ impl Default for Device {
 #[derive(Serialize, Deserialize)]
 pub struct Value;
 
+impl Default for Value {
+    fn default() -> Self {
+        Value {}
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Meta {
     pub id: Uuid,
@@ -103,12 +109,14 @@ impl SchemaBuilder {
 
 pub struct DeviceBuilder {
     name: String,
+    value: Vec<Value>,
 }
 
 impl DeviceBuilder {
     pub fn new() -> Self {
         DeviceBuilder {
             name: "".to_owned(),
+            value: vec![],
         }
     }
 
@@ -117,10 +125,15 @@ impl DeviceBuilder {
         self
     }
 
+    pub fn add_value(mut self, value: Value) -> Self {
+        self.value.push(value);
+        self
+    }
+
     pub fn create(self) -> Device {
         Device {
             name: self.name,
-            value: vec![],
+            value: self.value,
             meta: Meta {
                 id: Uuid::new_v4(),
                 meta_type: "device".to_owned(),
