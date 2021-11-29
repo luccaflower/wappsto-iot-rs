@@ -17,11 +17,7 @@ impl Schema {
     pub fn new(id: Uuid) -> Self {
         Schema {
             name: String::new(),
-            meta: Meta {
-                id,
-                meta_type: "network".to_owned(),
-                version: "2.0".to_owned(),
-            },
+            meta: Meta::new_with_uuid(id, MetaType::NETWORK),
             device: vec![],
         }
     }
@@ -39,11 +35,7 @@ impl Device {
         Device {
             name: "".to_owned(),
             value: vec![],
-            meta: Meta {
-                id: Uuid::new_v4(),
-                meta_type: String::from("device"),
-                version: String::from("2.0"),
-            },
+            meta: Meta::new(MetaType::DEVICE),
         }
     }
 }
@@ -78,11 +70,7 @@ impl Value {
             permission,
             number,
             state,
-            meta: Meta {
-                id: Uuid::new_v4(),
-                meta_type: String::from("value"),
-                version: String::from("2.0"),
-            },
+            meta: Meta::new(MetaType::VALUE),
         }
     }
 }
@@ -112,11 +100,7 @@ impl State {
             data: String::new(),
             state_type,
             timestamp: Local::now().format("%Y-%m-%dT%H:%M:%S.%fZ").to_string(),
-            meta: Meta {
-                id: Uuid::new_v4(),
-                meta_type: String::from("state"),
-                version: String::from("2.0"),
-            },
+            meta: Meta::new(MetaType::STATE),
         }
     }
 }
@@ -163,8 +147,34 @@ pub enum Permission {
 pub struct Meta {
     pub id: Uuid,
     #[serde(rename = "type")]
-    pub meta_type: String,
+    pub meta_type: MetaType,
     pub version: String,
+}
+
+impl Meta {
+    pub fn new_with_uuid(id: Uuid, meta_type: MetaType) -> Self {
+        Meta {
+            id,
+            meta_type,
+            version: String::from("2.0"),
+        }
+    }
+
+    pub fn new(meta_type: MetaType) -> Self {
+        Meta {
+            id: Uuid::new_v4(),
+            meta_type,
+            version: String::from("2.0"),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum MetaType {
+    NETWORK,
+    DEVICE,
+    VALUE,
+    STATE,
 }
 
 pub struct SchemaBuilder {
@@ -197,7 +207,7 @@ pub struct SchemaBuilder {
 impl SchemaBuilder {
     pub fn new(id: Uuid) -> Self {
         SchemaBuilder {
-            name: "".to_owned(),
+            name: String::new(),
             id,
             device: vec![],
         }
@@ -216,11 +226,7 @@ impl SchemaBuilder {
     pub fn create(self) -> Schema {
         Schema {
             name: self.name,
-            meta: Meta {
-                id: self.id,
-                meta_type: String::from("network"),
-                version: String::from("2.0"),
-            },
+            meta: Meta::new_with_uuid(self.id, MetaType::NETWORK),
             device: self.device,
         }
     }
@@ -253,11 +259,7 @@ impl DeviceBuilder {
         Device {
             name: self.name,
             value: self.value,
-            meta: Meta {
-                id: Uuid::new_v4(),
-                meta_type: String::from("device"),
-                version: String::from("2.0"),
-            },
+            meta: Meta::new(MetaType::DEVICE),
         }
     }
 }
