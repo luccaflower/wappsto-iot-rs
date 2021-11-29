@@ -3,7 +3,8 @@ use uuid::Uuid;
 
 ///A Schema represents the internal data structure of an IoT client as understood by Wappsto. These
 ///schemas are referred to as "networks", and they may contain devices, values for devices, as well
-///as various kinds of metadata required by Wappsto.
+///as various kinds of metadata required by Wappsto. Network schemas can be generated
+///programmatically using [SchemaBuilder] and [DeviceBuilder].
 #[derive(Serialize, Deserialize)]
 pub struct Schema {
     pub name: String,
@@ -12,9 +13,9 @@ pub struct Schema {
 }
 
 impl Schema {
-    pub fn new(id: Uuid) -> Schema {
+    pub fn new(id: Uuid) -> Self {
         Schema {
-            name: "".to_owned(),
+            name: String::new(),
             meta: Meta {
                 id,
                 meta_type: "network".to_owned(),
@@ -39,8 +40,8 @@ impl Device {
             value: vec![],
             meta: Meta {
                 id: Uuid::new_v4(),
-                meta_type: "device".to_owned(),
-                version: "2.0".to_owned(),
+                meta_type: String::from("device"),
+                version: String::from("2.0"),
             },
         }
     }
@@ -107,9 +108,9 @@ pub struct State {
 impl State {
     pub fn new(state_type: StateType) -> Self {
         State {
-            data: String::from(""),
+            data: String::new(),
             state_type,
-            timestamp: String::from(""),
+            timestamp: String::new(),
             meta: Meta {
                 id: Uuid::new_v4(),
                 meta_type: String::from("state"),
@@ -171,6 +172,27 @@ pub struct SchemaBuilder {
     device: Vec<Device>,
 }
 
+///Used to generate network schematics programmatically.
+///
+/// # Example
+/// ```
+/// use uuid::Uuid;
+/// use wappsto_iot_rs::schema::*;
+///
+/// //Network UUID should be provided by Wappsto
+/// let example_uuid = Uuid::new_v4();
+///
+/// let schema = SchemaBuilder::new(example_uuid)
+///    .named(String::from("test"))
+///    .add_device(
+///        DeviceBuilder::new()
+///            .named(String::from("button"))
+///            .add_value(Value::default())
+///            .create(),
+///    )
+///    .create();
+/// ```
+
 impl SchemaBuilder {
     pub fn new(id: Uuid) -> Self {
         SchemaBuilder {
@@ -195,8 +217,8 @@ impl SchemaBuilder {
             name: self.name,
             meta: Meta {
                 id: self.id,
-                meta_type: "network".to_owned(),
-                version: "2.0".to_owned(),
+                meta_type: String::from("network"),
+                version: String::from("2.0"),
             },
             device: self.device,
         }
@@ -211,7 +233,7 @@ pub struct DeviceBuilder {
 impl DeviceBuilder {
     pub fn new() -> Self {
         DeviceBuilder {
-            name: "".to_owned(),
+            name: String::new(),
             value: vec![],
         }
     }
@@ -232,8 +254,8 @@ impl DeviceBuilder {
             value: self.value,
             meta: Meta {
                 id: Uuid::new_v4(),
-                meta_type: "device".to_owned(),
-                version: "2.0".to_owned(),
+                meta_type: String::from("device"),
+                version: String::from("2.0"),
             },
         }
     }
