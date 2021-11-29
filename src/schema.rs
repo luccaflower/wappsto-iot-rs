@@ -53,12 +53,68 @@ impl Default for Device {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Value;
+pub struct Value {
+    pub name: String,
+    pub permission: Permission,
+    pub number: NumberSchema,
+    pub meta: Meta,
+}
+
+impl Value {
+    pub fn new(name: String, permission: Permission, number: NumberSchema) -> Self {
+        Value {
+            name,
+            permission,
+            number,
+            meta: Meta {
+                id: Uuid::new_v4(),
+                meta_type: String::from("value"),
+                version: String::from("2.0"),
+            },
+        }
+    }
+}
 
 impl Default for Value {
     fn default() -> Self {
-        Value {}
+        Value::new(
+            String::from("State"),
+            Permission::R,
+            NumberSchema::default(),
+        )
     }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct NumberSchema {
+    pub min: f64,
+    pub max: f64,
+    pub step: f64,
+    pub unit: String,
+}
+
+impl NumberSchema {
+    pub fn new(min: f64, max: f64, step: f64, unit: String) -> Self {
+        NumberSchema {
+            min,
+            max,
+            step,
+            unit,
+        }
+    }
+}
+
+impl Default for NumberSchema {
+    fn default() -> Self {
+        NumberSchema::new(0f64, 1f64, 1f64, String::from(""))
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum Permission {
+    R,
+    W,
+    RW,
 }
 
 #[derive(Serialize, Deserialize)]
