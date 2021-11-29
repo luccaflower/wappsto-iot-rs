@@ -57,15 +57,25 @@ pub struct Value {
     pub name: String,
     pub permission: Permission,
     pub number: NumberSchema,
+    pub state: Vec<State>,
     pub meta: Meta,
 }
 
 impl Value {
     pub fn new(name: String, permission: Permission, number: NumberSchema) -> Self {
+        let state = match permission {
+            Permission::R => vec![State::new(StateType::REPORT)],
+            Permission::W => vec![State::new(StateType::CONTROL)],
+            Permission::RW => vec![
+                State::new(StateType::REPORT),
+                State::new(StateType::CONTROL),
+            ],
+        };
         Value {
             name,
             permission,
             number,
+            state,
             meta: Meta {
                 id: Uuid::new_v4(),
                 meta_type: String::from("value"),
@@ -83,6 +93,36 @@ impl Default for Value {
             NumberSchema::default(),
         )
     }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct State {
+    data: String,
+    #[serde(rename = "type")]
+    state_type: StateType,
+    timestamp: String,
+    meta: Meta,
+}
+
+impl State {
+    pub fn new(state_type: StateType) -> Self {
+        State {
+            data: String::from(""),
+            state_type,
+            timestamp: String::from(""),
+            meta: Meta {
+                id: Uuid::new_v4(),
+                meta_type: String::from("state"),
+                version: String::from("2.0"),
+            },
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum StateType {
+    REPORT,
+    CONTROL,
 }
 
 #[derive(Serialize, Deserialize)]
