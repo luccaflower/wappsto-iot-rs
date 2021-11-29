@@ -1,3 +1,4 @@
+use chrono::Local;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -110,7 +111,7 @@ impl State {
         State {
             data: String::new(),
             state_type,
-            timestamp: String::new(),
+            timestamp: Local::now().format("%Y-%m-%dT%H:%M:%S.%fZ").to_string(),
             meta: Meta {
                 id: Uuid::new_v4(),
                 meta_type: String::from("state"),
