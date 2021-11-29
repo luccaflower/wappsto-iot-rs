@@ -11,3 +11,6 @@ Cargo.lock
 
 # network instance json
 /network_instance/
+
+# Environment variables file
+.env
