@@ -5,13 +5,32 @@ use std::error::Error;
 use std::marker::PhantomData;
 use uuid::Uuid;
 
+#[doc(hidden)]
 pub struct NoCredentials;
+
+#[doc(hidden)]
 pub struct WithCredentials;
+
+#[doc(hidden)]
 pub trait Credentials {}
 
 impl Credentials for NoCredentials {}
 impl Credentials for WithCredentials {}
 
+///Make a request to the Wappsto REST API in order to create a new network and retrieve its UUID
+///and SSL certificates.
+///# Example
+///```no_run
+/// # use wappsto_iot_rs::create_network::*;
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+///     let creator = RequestBuilder::new()
+///         .with_credentials("username", "password")
+///         .to_server(WappstoServers::PROD)
+///         .send()?;
+/// #   Ok(())
+/// # }
+///```
 pub struct RequestBuilder<'a, C: Credentials> {
     username: &'a str,
     password: &'a str,
@@ -20,7 +39,7 @@ pub struct RequestBuilder<'a, C: Credentials> {
 }
 
 impl<'a> RequestBuilder<'a, NoCredentials> {
-    pub fn new() -> RequestBuilder<'a, NoCredentials> {
+    pub fn new() -> Self {
         RequestBuilder {
             username: "",
             password: "",
@@ -86,11 +105,13 @@ impl<'a> Default for RequestBuilder<'a, NoCredentials> {
     }
 }
 
+///The servers you can make requests to. Defaults to PROD.
 pub enum WappstoServers {
     PROD,
     QA,
 }
 
+///The creator object contains the required SSL certificates and network UUID
 #[derive(Deserialize)]
 pub struct Creator {
     pub ca: String,
@@ -99,6 +120,7 @@ pub struct Creator {
     pub network: CreatorNetwork,
 }
 
+#[doc(hidden)]
 #[derive(Deserialize)]
 pub struct CreatorNetwork {
     pub id: Uuid,

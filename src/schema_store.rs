@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 use crate::schema::Schema;
 
+///Save network schema to data store
 pub fn save(schema: Schema) {
     DirBuilder::new()
         .recursive(true)
@@ -18,6 +19,8 @@ pub fn save(schema: Schema) {
     )
     .unwrap();
 }
+
+///Load network schema from data store
 pub fn load(id: Uuid) -> Result<Schema, Box<dyn Error>> {
     let contents = match read_to_string("network_instance/".to_owned() + &id.to_string() + ".json")
     {

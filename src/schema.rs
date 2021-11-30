@@ -5,7 +5,8 @@ use uuid::Uuid;
 ///A Schema represents the internal data structure of an IoT client as understood by Wappsto. These
 ///schemas are referred to as "networks", and they may contain devices, values for devices, as well
 ///as various kinds of metadata required by Wappsto. Network schemas can be generated
-///programmatically using [SchemaBuilder] and [DeviceBuilder].
+///programmatically using [SchemaBuilder] and [DeviceBuilder]. The full JSON schematic can be found
+///[here](https://wappsto.com/services/2.0/network/schema).
 #[derive(Serialize, Deserialize)]
 pub struct Schema {
     pub name: String,
@@ -177,12 +178,6 @@ pub enum MetaType {
     STATE,
 }
 
-pub struct SchemaBuilder {
-    name: String,
-    id: Uuid,
-    device: Vec<Device>,
-}
-
 ///Used to generate network schematics programmatically.
 ///
 /// # Example
@@ -203,6 +198,12 @@ pub struct SchemaBuilder {
 ///    )
 ///    .create();
 /// ```
+
+pub struct SchemaBuilder {
+    name: String,
+    id: Uuid,
+    device: Vec<Device>,
+}
 
 impl SchemaBuilder {
     pub fn new(id: Uuid) -> Self {
