@@ -17,6 +17,9 @@ jobs:
           toolchain: stable
 
       - name: Run Cargo test
+        env:
+          WAPPSTO_USERNAME: ${{secrets.WAPPSTO_USERNAME}}
+          WAPPSTO_PASSWORD: ${{secrets.WAPPSTO_PASSWORD}}
         uses: actions-rs/cargo@v1
         with:
           command: test
