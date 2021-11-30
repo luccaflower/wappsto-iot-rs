@@ -2,6 +2,7 @@ use reqwest::blocking::Client;
 use serde::Deserialize;
 use serde_json::json;
 use std::error::Error;
+use std::marker::PhantomData;
 use uuid::Uuid;
 
 pub struct NoCredentials;
@@ -15,7 +16,7 @@ pub struct RequestBuilder<'a, C: Credentials> {
     username: &'a str,
     password: &'a str,
     server: WappstoServers,
-    credentials_state: std::marker::PhantomData<C>,
+    credentials_state: PhantomData<C>,
 }
 
 impl<'a> RequestBuilder<'a, NoCredentials> {
@@ -24,7 +25,7 @@ impl<'a> RequestBuilder<'a, NoCredentials> {
             username: "",
             password: "",
             server: WappstoServers::PROD,
-            credentials_state: std::marker::PhantomData,
+            credentials_state: PhantomData,
         }
     }
 
@@ -37,7 +38,7 @@ impl<'a> RequestBuilder<'a, NoCredentials> {
             username,
             password,
             server: self.server,
-            credentials_state: std::marker::PhantomData,
+            credentials_state: PhantomData,
         }
     }
 
