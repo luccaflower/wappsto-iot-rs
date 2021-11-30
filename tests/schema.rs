@@ -10,7 +10,7 @@ fn saves_network_schema_to_data_store() {
         .named(String::from("test"))
         .add_device(
             DeviceBuilder::new()
-                .named(String::from("buttom"))
+                .named(String::from("button"))
                 .add_value(Value::default())
                 .create(),
         )

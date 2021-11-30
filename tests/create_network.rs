@@ -1,9 +1,9 @@
 use dotenv;
+use reqwest::blocking::Client;
 use std::env;
 use wappsto_iot_rs::create_network::*;
 
 #[test]
-#[ignore]
 fn creates_network() {
     dotenv::dotenv().ok();
     let username =
@@ -16,4 +16,12 @@ fn creates_network() {
         .send();
 
     assert!(response.is_ok());
+
+    Client::new()
+        .delete(
+            "https://qa.wappsto.com/services/2.0/network/".to_owned()
+                + &response.unwrap().network.id.to_string(),
+        )
+        .send()
+        .unwrap();
 }
