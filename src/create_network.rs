@@ -1,6 +1,7 @@
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use serde_json::json;
+use std::error::Error;
 use uuid::Uuid;
 
 pub struct RequestBuilder<'a> {
@@ -29,7 +30,7 @@ impl<'a> RequestBuilder<'a> {
         self
     }
 
-    pub fn send(self) -> Result<Creator, WappstoHttpError> {
+    pub fn send(self) -> Result<Creator, Box<dyn Error>> {
         let client = Client::new();
         let base_url = match self.server {
             WappstoServers::PROD => "https://wappsto.com/services/",
@@ -42,18 +43,14 @@ impl<'a> RequestBuilder<'a> {
         let session_response: Session = client
             .post(base_url.to_owned() + "2.0/session")
             .json(&credentials)
-            .send()
-            .expect("failed to log in")
-            .json()
-            .expect("failed to deserialize");
+            .send()?
+            .json()?;
         let creator: Creator = client
             .post(base_url.to_owned() + "2.1/creator")
             .header("x-session", session_response.meta.id.to_string())
             .json(&json!({}))
-            .send()
-            .expect("failed to create")
-            .json()
-            .expect("failed to deserialize creator");
+            .send()?
+            .json()?;
 
         Ok(creator)
     }
