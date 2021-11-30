@@ -10,7 +10,6 @@ fn creates_network() {
         env::var("WAPPSTO_USERNAME").expect("Wappsto username not found in environment variables");
     let password =
         env::var("WAPPSTO_PASSWORD").expect("Wappsto password not found in environment variables");
-    println!("TEST: {}, {}", username, password);
     let response = RequestBuilder::new()
         .with_credentials(&username, &password)
         .to_server(WappstoServers::QA)
