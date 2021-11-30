@@ -4,32 +4,50 @@ use serde_json::json;
 use std::error::Error;
 use uuid::Uuid;
 
-pub struct RequestBuilder<'a> {
+pub struct NoCredentials;
+pub struct WithCredentials;
+pub trait Credentials {}
+
+impl Credentials for NoCredentials {}
+impl Credentials for WithCredentials {}
+
+pub struct RequestBuilder<'a, C: Credentials> {
     username: &'a str,
     password: &'a str,
     server: WappstoServers,
+    credentials_state: std::marker::PhantomData<C>,
 }
 
-impl<'a> RequestBuilder<'a> {
+impl<'a> RequestBuilder<'a, NoCredentials> {
     pub fn new() -> Self {
         Self {
             username: "",
             password: "",
             server: WappstoServers::PROD,
+            credentials_state: std::marker::PhantomData,
         }
     }
 
-    pub fn with_credentials(mut self, username: &'a str, password: &'a str) -> Self {
-        self.username = username;
-        self.password = password;
-        self
+    pub fn with_credentials(
+        self,
+        username: &'a str,
+        password: &'a str,
+    ) -> RequestBuilder<'a, WithCredentials> {
+        RequestBuilder {
+            username,
+            password,
+            server: self.server,
+            credentials_state: std::marker::PhantomData,
+        }
     }
 
     pub fn to_server(mut self, server: WappstoServers) -> Self {
         self.server = server;
         self
     }
+}
 
+impl<'a> RequestBuilder<'a, WithCredentials> {
     pub fn send(self) -> Result<Creator, Box<dyn Error>> {
         let client = Client::new();
         let base_url = match self.server {
@@ -56,7 +74,7 @@ impl<'a> RequestBuilder<'a> {
     }
 }
 
-impl<'a> Default for RequestBuilder<'a> {
+impl<'a> Default for RequestBuilder<'a, NoCredentials> {
     fn default() -> Self {
         Self::new()
     }
