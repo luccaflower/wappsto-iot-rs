@@ -20,15 +20,20 @@ pub struct RequestBuilder<'a, C: Credentials> {
 }
 
 impl<'a> RequestBuilder<'a, NoCredentials> {
-    pub fn new() -> Self {
-        Self {
+    pub fn new() -> RequestBuilder<'a, NoCredentials> {
+        RequestBuilder {
             username: "",
             password: "",
             server: WappstoServers::PROD,
             credentials_state: PhantomData,
         }
     }
+}
 
+impl<'a, C> RequestBuilder<'a, C>
+where
+    C: Credentials,
+{
     pub fn with_credentials(
         self,
         username: &'a str,
