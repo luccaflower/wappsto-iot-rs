@@ -86,9 +86,6 @@ impl<'a> Default for RequestBuilder<'a, NoCredentials> {
     }
 }
 
-#[derive(Debug)]
-pub struct WappstoHttpError;
-
 pub enum WappstoServers {
     PROD,
     QA,
