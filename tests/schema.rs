@@ -1,5 +1,5 @@
 use uuid::Uuid;
-use wappsto_iot_rs::fs_store::{self, load_schema};
+use wappsto_iot_rs::fs_store;
 use wappsto_iot_rs::schema::{DeviceBuilder, SchemaBuilder, Value};
 
 #[test]
