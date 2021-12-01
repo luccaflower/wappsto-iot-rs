@@ -16,5 +16,5 @@ fn saves_network_schema_to_data_store() {
         )
         .create();
     fs_store::save_schema(schema);
-    assert!(fs_store:load_schema(id).is_ok())
+    assert!(fs_store::load_schema(id).is_ok())
 }
