@@ -1,6 +1,6 @@
 use uuid::Uuid;
+use wappsto_iot_rs::fs_store::{self, load_schema};
 use wappsto_iot_rs::schema::{DeviceBuilder, SchemaBuilder, Value};
-use wappsto_iot_rs::schema_store;
 
 #[test]
 fn saves_network_schema_to_data_store() {
@@ -15,6 +15,6 @@ fn saves_network_schema_to_data_store() {
                 .create(),
         )
         .create();
-    schema_store::save(schema);
-    assert!(schema_store::load(id).is_ok())
+    fs_store::save_schema(schema);
+    assert!(fs_store:load_schema(id).is_ok())
 }

@@ -8,5 +8,5 @@ pub mod create_network;
 pub mod schema;
 
 ///Data store for network schematics
-pub mod schema_store;
+pub mod fs_store;
 mod schema_test;
