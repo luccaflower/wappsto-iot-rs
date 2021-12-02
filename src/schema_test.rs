@@ -13,7 +13,7 @@ mod schema_builder {
     #[test]
     fn can_name_the_network() {
         let id = Uuid::new_v4();
-        let schema = SchemaBuilder::new(id).named("test".to_owned()).create();
+        let schema = SchemaBuilder::new(id).named("test").create();
         assert_eq!("test", schema.name)
     }
 
@@ -37,7 +37,7 @@ mod device_builder {
 
     #[test]
     fn can_name_the_device() {
-        let device = DeviceBuilder::new().named("test".to_owned()).create();
+        let device = DeviceBuilder::new().named("test").create();
         assert_eq!("test", device.name)
     }
 

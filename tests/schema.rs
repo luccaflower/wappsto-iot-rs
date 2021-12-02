@@ -7,10 +7,10 @@ fn saves_network_schema_to_data_store() {
     let id = Uuid::new_v4();
 
     let schema = SchemaBuilder::new(id)
-        .named(String::from("test"))
+        .named("test")
         .add_device(
             DeviceBuilder::new()
-                .named(String::from("button"))
+                .named("button")
                 .add_value(Value::default())
                 .create(),
         )

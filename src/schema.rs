@@ -121,19 +121,19 @@ pub struct NumberSchema {
 }
 
 impl NumberSchema {
-    pub fn new(min: f64, max: f64, step: f64, unit: String) -> Self {
+    pub fn new(min: f64, max: f64, step: f64, unit: &str) -> Self {
         NumberSchema {
             min,
             max,
             step,
-            unit,
+            unit: unit.to_string(),
         }
     }
 }
 
 impl Default for NumberSchema {
     fn default() -> Self {
-        NumberSchema::new(0f64, 1f64, 1f64, String::from(""))
+        NumberSchema::new(0f64, 1f64, 1f64, "")
     }
 }
 
@@ -189,10 +189,10 @@ pub enum MetaType {
 /// let example_uuid = Uuid::new_v4();
 ///
 /// let schema = SchemaBuilder::new(example_uuid)
-///    .named(String::from("test"))
+///    .named("test")
 ///    .add_device(
 ///        DeviceBuilder::new()
-///            .named(String::from("button"))
+///            .named("button")
 ///            .add_value(Value::default())
 ///            .create(),
 ///    )
@@ -214,8 +214,8 @@ impl SchemaBuilder {
         }
     }
 
-    pub fn named(mut self, name: String) -> Self {
-        self.name = name;
+    pub fn named(mut self, name: &str) -> Self {
+        self.name = name.to_string();
         self
     }
 
@@ -246,8 +246,8 @@ impl DeviceBuilder {
         }
     }
 
-    pub fn named(mut self, name: String) -> Self {
-        self.name = name;
+    pub fn named(mut self, name: &str) -> Self {
+        self.name = name.to_string();
         self
     }
 
