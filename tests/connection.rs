@@ -1,11 +1,9 @@
 use dotenv;
 use std::env;
-use std::net::TcpStream;
-use wappsto_iot_rs::connection;
 use wappsto_iot_rs::create_network::{RequestBuilder, WappstoServers};
+use wappsto_iot_rs::{connection, fs_store};
 
 #[test]
-#[ignore]
 fn connects_to_wappsto() {
     dotenv::dotenv().ok();
     let username =
@@ -16,7 +14,10 @@ fn connects_to_wappsto() {
     let creator = RequestBuilder::new()
         .to_server(WappstoServers::QA)
         .with_credentials(&username, &password)
-        .send();
+        .send()
+        .unwrap();
 
-    assert!(connection::start::<TcpStream>(creator.expect("Error getting creator")).is_ok())
+    fs_store::save_certs(creator).unwrap();
+
+    assert!(connection::start().is_ok())
 }

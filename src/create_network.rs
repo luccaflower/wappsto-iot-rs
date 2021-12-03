@@ -91,7 +91,9 @@ impl<'a> RequestBuilder<'a, WithCredentials> {
         let creator: Creator = client
             .post(base_url.to_owned() + "2.1/creator")
             .header("x-session", session_response.meta.id.to_string())
-            .json(&json!({}))
+            .json(&json!({
+                "manufacturer_as_owner": true
+            }))
             .send()?
             .json()?;
 
