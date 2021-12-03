@@ -9,4 +9,7 @@ pub mod schema;
 
 ///Data store for network schematics
 pub mod fs_store;
+
+pub mod connection;
+
 mod schema_test;
