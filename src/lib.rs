@@ -11,5 +11,6 @@ pub mod schema;
 pub mod fs_store;
 
 pub mod connection;
+pub mod network;
 
 mod schema_test;
