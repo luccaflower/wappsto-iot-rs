@@ -1,18 +1,28 @@
 use std::{error::Error, fmt::Display};
 
-pub struct Network;
+use crate::connection::{Connectable, Connection};
 
-impl Network {
-    pub fn builder(_name: &str) -> NetworkBuilder {
-        NetworkBuilder
+pub struct Network<C>
+where
+    C: Connectable,
+{
+    pub connection: C,
+}
+
+impl Network<Connection> {
+    pub fn new(_name: &str) -> Self {
+        Self {
+            connection: Connection::new(),
+        }
     }
 }
 
-pub struct NetworkBuilder;
-
-impl NetworkBuilder {
-    pub fn create(self) -> Result<Network, Box<dyn Error>> {
-        Err(Box::new(DummyError {}))
+impl<C> Network<C>
+where
+    C: Connectable,
+{
+    pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
+        self.connection.start()
     }
 }
 

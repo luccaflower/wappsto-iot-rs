@@ -13,4 +13,8 @@ pub mod fs_store;
 pub mod connection;
 pub mod network;
 
+#[cfg(test)]
+mod network_test;
+
+#[cfg(test)]
 mod schema_test;

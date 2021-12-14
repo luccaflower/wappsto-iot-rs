@@ -4,6 +4,29 @@ use std::error::Error;
 use std::net::TcpStream;
 use std::path::Path;
 
+pub struct Connection;
+pub trait Connectable {
+    fn start(&mut self) -> Result<(), Box<dyn Error>>;
+}
+
+impl Connectable for Connection {
+    fn start(&mut self) -> Result<(), Box<dyn Error>> {
+        Ok(())
+    }
+}
+
+impl Connection {
+    pub fn new() -> Self {
+        Connection {}
+    }
+}
+
+impl Default for Connection {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub fn start() -> Result<SslStream<TcpStream>, Box<dyn Error>> {
     let mut ctx = SslConnector::builder(SslMethod::tls())?;
 

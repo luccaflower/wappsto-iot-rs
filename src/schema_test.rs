@@ -1,4 +1,3 @@
-#[cfg(test)]
 mod schema_builder {
     use crate::schema::*;
     use uuid::Uuid;
@@ -25,7 +24,6 @@ mod schema_builder {
     }
 }
 
-#[cfg(test)]
 mod device_builder {
     use crate::schema::*;
 
