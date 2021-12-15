@@ -5,6 +5,7 @@ use wappsto_iot_rs::create_network::*;
 use wappsto_iot_rs::network::*;
 
 #[test]
+#[ignore]
 fn publishes_new_network_to_wappsto() {
     create_network().expect("Failed to created network");
 
