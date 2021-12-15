@@ -7,10 +7,10 @@ use crate::{
     fs_store::{FsStore, Store},
 };
 
-pub struct Network<'a, C = Connection, S = FsStore>
+pub struct Network<'a, C = Connection<'a>, S = FsStore>
 where
-    C: Connectable + Default,
-    S: Store + Default,
+    C: Connectable<'a>,
+    S: Store<'a> + Default,
 {
     pub name: &'a str,
     pub id: Uuid,
@@ -19,20 +19,18 @@ where
     store: S,
 }
 
-impl<'a> Network<'a, Connection> {}
-
 impl<'a, C, S> Network<'a, C, S>
 where
-    C: Connectable + Default,
-    S: Store + Default,
+    C: Connectable<'a>,
+    S: Store<'a> + Default,
 {
     pub fn new(name: &'a str) -> Result<Self, Box<dyn Error>> {
         let store = S::default();
-        let id = store.load_certs()?.id;
+        let certs = store.load_certs()?;
         Ok(Self {
             name,
-            id,
-            connection: C::default(),
+            id: certs.id,
+            connection: C::new(certs),
             store,
         })
     }

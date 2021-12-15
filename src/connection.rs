@@ -4,26 +4,23 @@ use std::error::Error;
 use std::net::TcpStream;
 use std::path::Path;
 
-pub struct Connection;
-pub trait Connectable {
+use crate::certs::Certs;
+
+pub struct Connection<'a> {
+    #[allow(dead_code)]
+    certs: Certs<'a>,
+}
+pub trait Connectable<'a> {
+    fn new(certs: Certs<'a>) -> Self;
     fn start(&mut self) -> Result<(), Box<dyn Error>>;
 }
 
-impl Connectable for Connection {
+impl<'a> Connectable<'a> for Connection<'a> {
+    fn new(certs: Certs<'a>) -> Self {
+        Self { certs }
+    }
     fn start(&mut self) -> Result<(), Box<dyn Error>> {
         Ok(())
-    }
-}
-
-impl Connection {
-    pub fn new() -> Self {
-        Connection {}
-    }
-}
-
-impl Default for Connection {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
