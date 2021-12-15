@@ -10,6 +10,7 @@ pub mod schema;
 ///Data store for network schematics
 pub mod fs_store;
 
+pub mod certs;
 pub mod connection;
 pub mod network;
 

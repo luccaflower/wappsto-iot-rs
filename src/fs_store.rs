@@ -1,10 +1,31 @@
 use serde_json;
 use std::error::Error;
 use std::fs::{read_to_string, write, DirBuilder, File};
+use std::io;
 use uuid::Uuid;
 
+use crate::certs::Certs;
 use crate::create_network::{Creator, CreatorNetwork};
 use crate::schema::Schema;
+
+pub struct FsStore;
+pub trait Store {
+    fn load_certs(&self) -> Result<Certs, Box<dyn Error>>;
+}
+
+impl Store for FsStore {
+    fn load_certs(&self) -> Result<Certs, Box<dyn Error>> {
+        Err(Box::new(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "oh no!",
+        )))
+    }
+}
+impl Default for FsStore {
+    fn default() -> Self {
+        Self {}
+    }
+}
 
 ///Save network schema to data store
 pub fn save_schema(schema: Schema) {

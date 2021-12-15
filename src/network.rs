@@ -1,28 +1,54 @@
 use std::{error::Error, fmt::Display};
 
-use crate::connection::{Connectable, Connection};
+use uuid::Uuid;
 
-pub struct Network<C>
+use crate::{
+    connection::{Connectable, Connection},
+    fs_store::{FsStore, Store},
+};
+
+pub struct Network<'a, C = Connection, S = FsStore>
 where
-    C: Connectable,
+    C: Connectable + Default,
+    S: Store + Default,
 {
-    pub connection: C,
+    pub name: &'a str,
+    pub id: Uuid,
+    connection: C,
+    #[allow(dead_code)]
+    store: S,
 }
 
-impl Network<Connection> {
-    pub fn new(_name: &str) -> Self {
-        Self {
-            connection: Connection::new(),
-        }
+impl<'a> Network<'a, Connection> {}
+
+impl<'a, C, S> Network<'a, C, S>
+where
+    C: Connectable + Default,
+    S: Store + Default,
+{
+    pub fn new(name: &'a str) -> Result<Self, Box<dyn Error>> {
+        let store = S::default();
+        let id = store.load_certs()?.id;
+        Ok(Self {
+            name,
+            id,
+            connection: C::default(),
+            store,
+        })
     }
-}
 
-impl<C> Network<C>
-where
-    C: Connectable,
-{
     pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
         self.connection.start()
+    }
+
+    #[cfg(test)]
+    pub fn connection(&self) -> &C {
+        &self.connection
+    }
+
+    #[cfg(test)]
+    pub fn store(&self) -> &S {
+        &self.store
     }
 }
 
