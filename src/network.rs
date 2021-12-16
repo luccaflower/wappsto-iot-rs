@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{collections::HashMap, error::Error};
 
 use uuid::Uuid;
 
@@ -16,8 +16,8 @@ where
     pub name: &'a str,
     pub id: Uuid,
     connection: C,
-    #[allow(dead_code)]
     store: S,
+    devices: HashMap<&'a str, Device>,
 }
 
 impl<'a, C, S> Network<'a, C, S>
@@ -33,7 +33,12 @@ where
             id: certs.id,
             connection: C::new(certs),
             store,
+            devices: HashMap::new(),
         })
+    }
+
+    pub fn create_device(&mut self, name: &'a str) -> &Device {
+        self.devices.entry(name).or_default()
     }
 
     pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
@@ -58,5 +63,26 @@ where
     #[cfg(test)]
     pub fn store(&self) -> &S {
         &self.store
+    }
+
+    #[cfg(test)]
+    pub fn devices(&mut self) -> &mut HashMap<&'a str, Device> {
+        &mut self.devices
+    }
+}
+
+pub struct Device {
+    pub id: Uuid,
+}
+
+impl Device {
+    pub fn new() -> Self {
+        Self { id: Uuid::new_v4() }
+    }
+}
+
+impl Default for Device {
+    fn default() -> Self {
+        Self::new()
     }
 }

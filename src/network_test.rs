@@ -1,7 +1,10 @@
 mod network {
     use uuid::Uuid;
 
-    use crate::{network::Network, network_test::store::StoreMock};
+    use crate::{
+        network::{Device, Network},
+        network_test::store::StoreMock,
+    };
 
     use super::{connection::ConnectionMock, store::DEFAULT_ID};
 
@@ -34,7 +37,7 @@ mod network {
     }
 
     #[test]
-    fn should_schema_to_store_on_stop() {
+    fn should_save_schema_to_store_on_stop() {
         let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
         network.start().unwrap();
         network.stop().unwrap();
@@ -47,6 +50,23 @@ mod network {
                 .meta
                 .id
         )
+    }
+
+    #[test]
+    fn should_create_new_device() {
+        let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
+        let _device = network.create_device("test device");
+        assert!(network.devices().get("test device").is_some())
+    }
+
+    #[test]
+    fn should_load_existing_device() {
+        let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
+        let devices = network.devices();
+        let device = Device::new();
+        let expected_id = device.id.clone();
+        devices.insert("test_device", device);
+        assert_eq!(expected_id, network.create_device("test_device").id)
     }
 }
 
