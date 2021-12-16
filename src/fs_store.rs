@@ -1,7 +1,6 @@
 use serde_json;
 use std::error::Error;
 use std::fs::{read_to_string, write, DirBuilder, File};
-use std::io;
 use uuid::Uuid;
 
 use crate::certs::Certs;
@@ -11,14 +10,16 @@ use crate::schema::Schema;
 pub struct FsStore;
 pub trait Store<'a> {
     fn load_certs(&self) -> Result<Certs<'a>, Box<dyn Error>>;
+    fn save_schema(&mut self, schema: Schema) -> Result<(), Box<dyn Error>>;
 }
 
 impl<'a> Store<'a> for FsStore {
     fn load_certs(&self) -> Result<Certs<'a>, Box<dyn Error>> {
-        Err(Box::new(io::Error::new(
-            io::ErrorKind::PermissionDenied,
-            "oh no!",
-        )))
+        unimplemented!("Load certs not implemented for FsStore")
+    }
+
+    fn save_schema(&mut self, _schema: Schema) -> Result<(), Box<dyn Error>> {
+        unimplemented!("Save schema not implemented for FsStore")
     }
 }
 impl Default for FsStore {

@@ -1,10 +1,11 @@
-use std::{error::Error, fmt::Display};
+use std::error::Error;
 
 use uuid::Uuid;
 
 use crate::{
     connection::{Connectable, Connection},
     fs_store::{FsStore, Store},
+    schema::{Schema, SchemaBuilder},
 };
 
 pub struct Network<'a, C = Connection<'a>, S = FsStore>
@@ -39,6 +40,16 @@ where
         self.connection.start()
     }
 
+    pub fn stop(&mut self) -> Result<(), Box<dyn Error>> {
+        self.connection.stop();
+        self.store.save_schema(self.schema())?;
+        Ok(())
+    }
+
+    fn schema(&self) -> Schema {
+        SchemaBuilder::new(self.id).create()
+    }
+
     #[cfg(test)]
     pub fn connection(&self) -> &C {
         &self.connection
@@ -49,14 +60,3 @@ where
         &self.store
     }
 }
-
-#[derive(Debug)]
-struct DummyError;
-
-impl Display for DummyError {
-    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Ok(())
-    }
-}
-
-impl Error for DummyError {}

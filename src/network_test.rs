@@ -1,4 +1,6 @@
 mod network {
+    use uuid::Uuid;
+
     use crate::{network::Network, network_test::store::StoreMock};
 
     use super::{connection::ConnectionMock, store::DEFAULT_ID};
@@ -17,10 +19,34 @@ mod network {
     }
 
     #[test]
-    fn should_load_certificates() {
+    fn should_load_certificates_on_startup() {
         let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
         network.start().expect("Failed to start");
         assert_eq!(DEFAULT_ID, &network.id.to_string())
+    }
+
+    #[test]
+    fn should_close_connnection_on_stop() {
+        let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
+        network.start().unwrap();
+        network.stop().unwrap();
+        assert!(&network.connection().was_closed);
+    }
+
+    #[test]
+    fn should_schema_to_store_on_stop() {
+        let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
+        network.start().unwrap();
+        network.stop().unwrap();
+        assert_eq!(
+            Uuid::parse_str(DEFAULT_ID).unwrap(),
+            network
+                .store()
+                .load_schema(Uuid::parse_str(DEFAULT_ID).unwrap())
+                .unwrap()
+                .meta
+                .id
+        )
     }
 }
 
@@ -30,15 +56,23 @@ pub mod connection {
 
     pub struct ConnectionMock {
         pub is_started: bool,
+        pub was_closed: bool,
     }
 
     impl<'a> Connectable<'a> for ConnectionMock {
         fn new(_certs: Certs<'a>) -> Self {
-            Self { is_started: false }
+            Self {
+                is_started: false,
+                was_closed: false,
+            }
         }
         fn start(&mut self) -> Result<(), Box<dyn Error>> {
             self.is_started = true;
             Ok(())
+        }
+
+        fn stop(&mut self) {
+            self.was_closed = true;
         }
     }
 }
@@ -46,11 +80,20 @@ pub mod connection {
 pub mod store {
     use uuid::Uuid;
 
-    use crate::{certs::Certs, fs_store::Store};
-    use std::error::Error;
+    use crate::{certs::Certs, fs_store::Store, schema::Schema};
+    use std::{collections::HashMap, error::Error};
     pub const DEFAULT_ID: &str = "00000000-0000-0000-0000-000000000000";
 
-    pub struct StoreMock;
+    pub struct StoreMock {
+        schemas: HashMap<Uuid, Schema>,
+    }
+
+    impl StoreMock {
+        pub fn load_schema(&self, id: Uuid) -> Option<Schema> {
+            let schema = self.schemas.get(&id).unwrap();
+            Some(Schema::new(schema.meta.id))
+        }
+    }
 
     impl<'a> Store<'a> for StoreMock {
         fn load_certs(&self) -> Result<Certs<'a>, Box<dyn Error>> {
@@ -61,11 +104,18 @@ pub mod store {
                 private_key: "",
             })
         }
+
+        fn save_schema(&mut self, schema: Schema) -> Result<(), Box<dyn Error>> {
+            self.schemas.insert(schema.meta.id, schema);
+            Ok(())
+        }
     }
 
     impl Default for StoreMock {
         fn default() -> Self {
-            StoreMock {}
+            StoreMock {
+                schemas: HashMap::new(),
+            }
         }
     }
 }

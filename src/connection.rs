@@ -13,6 +13,7 @@ pub struct Connection<'a> {
 pub trait Connectable<'a> {
     fn new(certs: Certs<'a>) -> Self;
     fn start(&mut self) -> Result<(), Box<dyn Error>>;
+    fn stop(&mut self);
 }
 
 impl<'a> Connectable<'a> for Connection<'a> {
@@ -22,6 +23,7 @@ impl<'a> Connectable<'a> for Connection<'a> {
     fn start(&mut self) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
+    fn stop(&mut self) {}
 }
 
 pub fn start() -> Result<SslStream<TcpStream>, Box<dyn Error>> {
