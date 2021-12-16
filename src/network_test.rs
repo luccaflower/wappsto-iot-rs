@@ -111,7 +111,7 @@ pub mod store {
     impl StoreMock {
         pub fn load_schema(&self, id: Uuid) -> Option<Schema> {
             let schema = self.schemas.get(&id).unwrap();
-            Some(Schema::new(schema.meta.id))
+            Some(Schema::new("", schema.meta.id))
         }
     }
 

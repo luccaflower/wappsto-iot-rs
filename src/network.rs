@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::{
     connection::{Connectable, Connection},
     fs_store::{FsStore, Store},
-    schema::{Schema, SchemaBuilder},
+    schema::{DeviceSchema, Schema},
 };
 
 pub struct Network<'a, C = Connection<'a>, S = FsStore>
@@ -52,7 +52,13 @@ where
     }
 
     fn schema(&self) -> Schema {
-        SchemaBuilder::new(self.id).create()
+        let mut schema = Schema::new(self.name, self.id);
+        schema.device = self
+            .devices
+            .iter()
+            .map(|(name, device)| DeviceSchema::new(name, device.id))
+            .collect();
+        schema
     }
 
     #[cfg(test)]

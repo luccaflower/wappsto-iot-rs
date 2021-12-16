@@ -11,13 +11,13 @@ use uuid::Uuid;
 pub struct Schema {
     pub name: String,
     pub meta: Meta,
-    pub device: Vec<Device>,
+    pub device: Vec<DeviceSchema>,
 }
 
 impl Schema {
-    pub fn new(id: Uuid) -> Self {
+    pub fn new(name: &str, id: Uuid) -> Self {
         Schema {
-            name: String::new(),
+            name: name.to_owned(),
             meta: Meta::new_with_uuid(id, MetaType::NETWORK),
             device: vec![],
         }
@@ -25,25 +25,19 @@ impl Schema {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Device {
+pub struct DeviceSchema {
     pub name: String,
     pub value: Vec<Value>,
     pub meta: Meta,
 }
 
-impl Device {
-    pub fn new() -> Self {
-        Device {
-            name: "".to_owned(),
+impl DeviceSchema {
+    pub fn new(name: &str, id: Uuid) -> Self {
+        DeviceSchema {
+            name: name.to_owned(),
             value: vec![],
-            meta: Meta::new(MetaType::DEVICE),
+            meta: Meta::new_with_uuid(id, MetaType::DEVICE),
         }
-    }
-}
-
-impl Default for Device {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -176,97 +170,4 @@ pub enum MetaType {
     DEVICE,
     VALUE,
     STATE,
-}
-
-///Used to generate network schematics programmatically.
-///
-/// # Example
-/// ```
-/// use uuid::Uuid;
-/// use wappsto_iot_rs::schema::*;
-///
-/// //Network UUID should be provided by Wappsto
-/// let example_uuid = Uuid::new_v4();
-///
-/// let schema = SchemaBuilder::new(example_uuid)
-///    .named("test")
-///    .add_device(
-///        DeviceBuilder::new()
-///            .named("button")
-///            .add_value(Value::default())
-///            .create(),
-///    )
-///    .create();
-/// ```
-
-pub struct SchemaBuilder {
-    name: String,
-    id: Uuid,
-    device: Vec<Device>,
-}
-
-impl SchemaBuilder {
-    pub fn new(id: Uuid) -> Self {
-        SchemaBuilder {
-            name: String::new(),
-            id,
-            device: vec![],
-        }
-    }
-
-    pub fn named(mut self, name: &str) -> Self {
-        self.name = name.to_string();
-        self
-    }
-
-    pub fn add_device(mut self, device: Device) -> Self {
-        self.device.push(device);
-        self
-    }
-
-    pub fn create(self) -> Schema {
-        Schema {
-            name: self.name,
-            meta: Meta::new_with_uuid(self.id, MetaType::NETWORK),
-            device: self.device,
-        }
-    }
-}
-
-pub struct DeviceBuilder {
-    name: String,
-    value: Vec<Value>,
-}
-
-impl DeviceBuilder {
-    pub fn new() -> Self {
-        DeviceBuilder {
-            name: String::new(),
-            value: vec![],
-        }
-    }
-
-    pub fn named(mut self, name: &str) -> Self {
-        self.name = name.to_string();
-        self
-    }
-
-    pub fn add_value(mut self, value: Value) -> Self {
-        self.value.push(value);
-        self
-    }
-
-    pub fn create(self) -> Device {
-        Device {
-            name: self.name,
-            value: self.value,
-            meta: Meta::new(MetaType::DEVICE),
-        }
-    }
-}
-
-impl Default for DeviceBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
 }
