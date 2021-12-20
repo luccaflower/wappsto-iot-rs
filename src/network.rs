@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::{
     connection::{Connectable, Connection},
     fs_store::{FsStore, Store},
-    schema::{DeviceSchema, Schema},
+    schema::{DeviceSchema, NumberSchema, Permission, Schema, ValueSchema},
 };
 
 pub struct Network<'a, C = Connection, S = FsStore>
@@ -56,7 +56,26 @@ where
         schema.device = self
             .devices
             .iter()
-            .map(|(name, device)| DeviceSchema::new(name, device.id))
+            .map(|(name, device)| {
+                let mut device_schema = DeviceSchema::new(name, device.id);
+                device_schema.value = device
+                    .values
+                    .iter()
+                    .map(|(name, value)| {
+                        ValueSchema::new(
+                            name.to_string(),
+                            match (value.report.as_ref(), value.control.as_ref()) {
+                                (Some(_), Some(_)) => Permission::RW,
+                                (Some(_), None) => Permission::R,
+                                (None, Some(_)) => Permission::W,
+                                _ => panic!("Invalid permission"),
+                            },
+                            NumberSchema::new(0f64, 1f64, 1f64, "thingy"),
+                        )
+                    })
+                    .collect();
+                device_schema
+            })
             .collect();
         schema
     }
@@ -109,26 +128,31 @@ impl Default for Device<'_> {
     }
 }
 
+#[allow(dead_code)]
 pub struct Value<'a> {
-    #[allow(dead_code)]
-    control: Option<Box<dyn FnMut(String) + 'a>>,
+    control: Option<ControlState<'a>>,
+    report: Option<ReportState>,
 }
 
 impl<'a> Value<'a> {
     pub fn new(permission: ValuePermission<'a>) -> Self {
-        Self {
-            control: match permission {
-                ValuePermission::RW(f) | ValuePermission::W(f) => Some(f),
-                ValuePermission::R => None,
-            },
-        }
+        let (report, control) = match permission {
+            ValuePermission::RW(f) => (
+                Some(ReportState::new(Uuid::new_v4())),
+                Some(ControlState::new(Uuid::new_v4(), f)),
+            ),
+            ValuePermission::R => (Some(ReportState::new(Uuid::new_v4())), None),
+            ValuePermission::W(f) => (None, Some(ControlState::new(Uuid::new_v4(), f))),
+        };
+
+        Self { report, control }
     }
 }
 
 impl Value<'_> {
     #[cfg(test)]
     pub fn control(&mut self, data: String) {
-        self.control.as_mut().unwrap()(data)
+        (self.control.as_mut().unwrap().callback)(data)
     }
 }
 
@@ -136,4 +160,27 @@ pub enum ValuePermission<'a> {
     RW(Box<dyn FnMut(String) + 'a>),
     R,
     W(Box<dyn FnMut(String) + 'a>),
+}
+
+#[allow(dead_code)]
+struct ControlState<'a> {
+    pub id: Uuid,
+    pub callback: Box<dyn FnMut(String) + 'a>,
+}
+
+#[allow(dead_code)]
+struct ReportState {
+    pub id: Uuid,
+}
+
+impl<'a> ControlState<'a> {
+    pub fn new(id: Uuid, callback: Box<dyn FnMut(String) + 'a>) -> Self {
+        Self { id, callback }
+    }
+}
+
+impl ReportState {
+    pub fn new(id: Uuid) -> Self {
+        Self { id }
+    }
 }

@@ -80,6 +80,8 @@ mod network {
 
 pub mod device {
 
+    use std::cell::RefCell;
+
     use crate::network::{Device, Value, ValuePermission};
 
     #[test]
@@ -90,18 +92,17 @@ pub mod device {
     }
 
     #[test]
-    #[ignore]
     fn should_register_callback_on_writable_values() {
-        let mut callback_was_called = false;
+        let callback_was_called = RefCell::new(false);
         let mut device = Device::default();
         let callback = |_: String| {
-            callback_was_called = true;
+            *callback_was_called.borrow_mut() = true;
         };
         let value: &mut Value =
             device.create_value("test_value", ValuePermission::RW(Box::new(callback)));
         value.control(String::new());
-        //FIX
-        //assert!(callback_was_called)
+
+        assert!(*callback_was_called.borrow())
     }
 }
 

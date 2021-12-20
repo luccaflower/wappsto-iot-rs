@@ -27,7 +27,7 @@ impl Schema {
 #[derive(Serialize, Deserialize)]
 pub struct DeviceSchema {
     pub name: String,
-    pub value: Vec<Value>,
+    pub value: Vec<ValueSchema>,
     pub meta: Meta,
 }
 
@@ -42,7 +42,7 @@ impl DeviceSchema {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Value {
+pub struct ValueSchema {
     pub name: String,
     pub permission: Permission,
     pub number: NumberSchema,
@@ -50,7 +50,7 @@ pub struct Value {
     pub meta: Meta,
 }
 
-impl Value {
+impl ValueSchema {
     pub fn new(name: String, permission: Permission, number: NumberSchema) -> Self {
         let state = match permission {
             Permission::R => vec![State::new(StateType::REPORT)],
@@ -60,7 +60,7 @@ impl Value {
                 State::new(StateType::CONTROL),
             ],
         };
-        Value {
+        ValueSchema {
             name,
             permission,
             number,
@@ -70,9 +70,9 @@ impl Value {
     }
 }
 
-impl Default for Value {
+impl Default for ValueSchema {
     fn default() -> Self {
-        Value::new(
+        ValueSchema::new(
             String::from("State"),
             Permission::R,
             NumberSchema::default(),
