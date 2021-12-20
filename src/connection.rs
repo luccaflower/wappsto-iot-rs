@@ -6,18 +6,18 @@ use std::path::Path;
 
 use crate::certs::Certs;
 
-pub struct Connection<'a> {
+pub struct Connection {
     #[allow(dead_code)]
-    certs: Certs<'a>,
+    certs: Certs,
 }
-pub trait Connectable<'a> {
-    fn new(certs: Certs<'a>) -> Self;
+pub trait Connectable {
+    fn new(certs: Certs) -> Self;
     fn start(&mut self) -> Result<(), Box<dyn Error>>;
     fn stop(&mut self);
 }
 
-impl<'a> Connectable<'a> for Connection<'a> {
-    fn new(certs: Certs<'a>) -> Self {
+impl Connectable for Connection {
+    fn new(certs: Certs) -> Self {
         Self { certs }
     }
     fn start(&mut self) -> Result<(), Box<dyn Error>> {

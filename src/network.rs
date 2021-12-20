@@ -8,28 +8,28 @@ use crate::{
     schema::{DeviceSchema, Schema},
 };
 
-pub struct Network<'a, C = Connection<'a>, S = FsStore>
+pub struct Network<'a, C = Connection, S = FsStore>
 where
-    C: Connectable<'a>,
-    S: Store<'a> + Default,
+    C: Connectable,
+    S: Store + Default,
 {
-    pub name: &'a str,
+    pub name: String,
     pub id: Uuid,
     connection: C,
     store: S,
-    devices: HashMap<&'a str, Device<'a>>,
+    devices: HashMap<String, Device<'a>>,
 }
 
 impl<'a, C, S> Network<'a, C, S>
 where
-    C: Connectable<'a>,
-    S: Store<'a> + Default,
+    C: Connectable,
+    S: Store + Default,
 {
-    pub fn new(name: &'a str) -> Result<Self, Box<dyn Error>> {
+    pub fn new(name: &str) -> Result<Self, Box<dyn Error>> {
         let store = S::default();
         let certs = store.load_certs()?;
         Ok(Self {
-            name,
+            name: String::from(name),
             id: certs.id,
             connection: C::new(certs),
             store,
@@ -37,8 +37,8 @@ where
         })
     }
 
-    pub fn create_device(&mut self, name: &'a str) -> &'a Device {
-        self.devices.entry(name).or_default()
+    pub fn create_device(&mut self, name: &str) -> &mut Device<'a> {
+        self.devices.entry(String::from(name)).or_default()
     }
 
     pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
@@ -52,7 +52,7 @@ where
     }
 
     fn schema(&self) -> Schema {
-        let mut schema = Schema::new(self.name, self.id);
+        let mut schema = Schema::new(&self.name, self.id);
         schema.device = self
             .devices
             .iter()
@@ -72,14 +72,14 @@ where
     }
 
     #[cfg(test)]
-    pub fn devices(&mut self) -> &mut HashMap<&'a str, Device<'a>> {
+    pub fn devices(&mut self) -> &mut HashMap<String, Device<'a>> {
         &mut self.devices
     }
 }
 
 pub struct Device<'a> {
     pub id: Uuid,
-    values: HashMap<&'a str, Value<'a>>,
+    values: HashMap<String, Value<'a>>,
 }
 
 impl<'a> Device<'a> {
@@ -90,16 +90,16 @@ impl<'a> Device<'a> {
         }
     }
 
-    //TODO: satisfy the linter, probably
     #[allow(clippy::mut_from_ref)]
-    pub fn create_value(
-        &mut self,
-        name: &'a str,
-        permission: ValuePermission<'a>,
-    ) -> &'a mut Value {
+    pub fn create_value(&mut self, name: &str, permission: ValuePermission<'a>) -> &mut Value<'a> {
         self.values
-            .entry(name)
+            .entry(String::from(name))
             .or_insert_with(|| Value::new(permission))
+    }
+
+    #[cfg(test)]
+    pub fn values(&self) -> &HashMap<String, Value<'a>> {
+        &self.values
     }
 }
 
@@ -111,7 +111,7 @@ impl Default for Device<'_> {
 
 pub struct Value<'a> {
     #[allow(dead_code)]
-    control: Option<&'a mut dyn FnMut(String)>,
+    control: Option<Box<dyn FnMut(String) + 'a>>,
 }
 
 impl<'a> Value<'a> {
@@ -123,7 +123,9 @@ impl<'a> Value<'a> {
             },
         }
     }
+}
 
+impl Value<'_> {
     #[cfg(test)]
     pub fn control(&mut self, data: String) {
         self.control.as_mut().unwrap()(data)
@@ -131,7 +133,7 @@ impl<'a> Value<'a> {
 }
 
 pub enum ValuePermission<'a> {
-    RW(&'a mut dyn FnMut(String)),
+    RW(Box<dyn FnMut(String) + 'a>),
     R,
-    W(&'a mut dyn FnMut(String)),
+    W(Box<dyn FnMut(String) + 'a>),
 }

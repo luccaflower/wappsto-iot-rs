@@ -8,13 +8,13 @@ use crate::create_network::{Creator, CreatorNetwork};
 use crate::schema::Schema;
 
 pub struct FsStore;
-pub trait Store<'a> {
-    fn load_certs(&self) -> Result<Certs<'a>, Box<dyn Error>>;
+pub trait Store {
+    fn load_certs(&self) -> Result<Certs, Box<dyn Error>>;
     fn save_schema(&mut self, schema: Schema) -> Result<(), Box<dyn Error>>;
 }
 
-impl<'a> Store<'a> for FsStore {
-    fn load_certs(&self) -> Result<Certs<'a>, Box<dyn Error>> {
+impl Store for FsStore {
+    fn load_certs(&self) -> Result<Certs, Box<dyn Error>> {
         unimplemented!("Load certs not implemented for FsStore")
     }
 

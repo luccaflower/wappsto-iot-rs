@@ -2,19 +2,15 @@ use std::error::Error;
 use uuid::Uuid;
 use x509_parser::pem::parse_x509_pem;
 
-pub struct Certs<'a> {
+pub struct Certs {
     pub id: Uuid,
-    pub ca: &'a str,
-    pub certificate: &'a str,
-    pub private_key: &'a str,
+    pub ca: String,
+    pub certificate: String,
+    pub private_key: String,
 }
 
-impl<'a> Certs<'a> {
-    pub fn new(
-        ca: &'a str,
-        certificate: &'a str,
-        private_key: &'a str,
-    ) -> Result<Self, Box<dyn Error>> {
+impl Certs {
+    pub fn new(ca: &str, certificate: &str, private_key: &str) -> Result<Self, Box<dyn Error>> {
         let certificate_raw = certificate.as_bytes();
         let pem = parse_x509_pem(certificate_raw)?.1;
         let id = Uuid::parse_str(
@@ -27,9 +23,9 @@ impl<'a> Certs<'a> {
         )?;
         Ok(Self {
             id,
-            ca,
-            certificate,
-            private_key,
+            ca: String::from(ca),
+            certificate: String::from(certificate),
+            private_key: String::from(private_key),
         })
     }
 }
