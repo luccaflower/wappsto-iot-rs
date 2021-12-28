@@ -3,14 +3,15 @@ use std::{collections::HashMap, error::Error};
 use uuid::Uuid;
 
 use crate::{
-    connection::{Connectable, Connection},
+    connection::{Connect, Connection},
     fs_store::{FsStore, Store},
+    rpc::{Rpc, RpcMethod, RpcType},
     schema::{DeviceSchema, NumberSchema, Permission, Schema, ValueSchema},
 };
 
 pub struct Network<'a, C = Connection, S = FsStore>
 where
-    C: Connectable,
+    C: Connect,
     S: Store + Default,
 {
     pub name: String,
@@ -22,7 +23,7 @@ where
 
 impl<'a, C, S> Network<'a, C, S>
 where
-    C: Connectable,
+    C: Connect,
     S: Store + Default,
 {
     pub fn new(name: &str) -> Result<Self, Box<dyn Error>> {
@@ -42,7 +43,15 @@ where
     }
 
     pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
-        self.connection.start()
+        self.connection.start()?;
+        self.connection.send(
+            Rpc::builder()
+                .method(RpcMethod::POST)
+                .on_type(RpcType::NETWORK)
+                .data(self.schema())
+                .create(),
+        );
+        Ok(())
     }
 
     pub fn stop(&mut self) -> Result<(), Box<dyn Error>> {
@@ -147,9 +156,6 @@ impl<'a> Value<'a> {
 
         Self { report, control }
     }
-}
-
-impl Value<'_> {
     #[cfg(test)]
     pub fn control(&mut self, data: String) {
         (self.control.as_mut().unwrap().callback)(data)

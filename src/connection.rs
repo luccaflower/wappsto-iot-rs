@@ -4,26 +4,31 @@ use std::error::Error;
 use std::net::TcpStream;
 use std::path::Path;
 
-use crate::certs::Certs;
+use crate::{certs::Certs, rpc::Rpc};
 
 pub struct Connection {
     #[allow(dead_code)]
     certs: Certs,
 }
-pub trait Connectable {
+pub trait Connect {
     fn new(certs: Certs) -> Self;
     fn start(&mut self) -> Result<(), Box<dyn Error>>;
     fn stop(&mut self);
+    fn send(&mut self, rpc: Rpc);
 }
 
-impl Connectable for Connection {
+impl Connect for Connection {
     fn new(certs: Certs) -> Self {
         Self { certs }
     }
     fn start(&mut self) -> Result<(), Box<dyn Error>> {
-        Ok(())
+        todo!("start connection")
     }
-    fn stop(&mut self) {}
+    fn stop(&mut self) {
+        todo!("stop connection")
+    }
+
+    fn send(&mut self, _rpc: Rpc) {}
 }
 
 pub fn start() -> Result<SslStream<TcpStream>, Box<dyn Error>> {

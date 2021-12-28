@@ -7,7 +7,7 @@ use uuid::Uuid;
 ///as various kinds of metadata required by Wappsto. Network schemas can be generated
 ///programmatically using [SchemaBuilder] and [DeviceBuilder]. The full JSON schematic can be found
 ///[here](https://wappsto.com/services/2.0/network/schema).
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Schema {
     pub name: String,
     pub meta: Meta,
@@ -24,7 +24,7 @@ impl Schema {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct DeviceSchema {
     pub name: String,
     pub value: Vec<ValueSchema>,
@@ -41,7 +41,7 @@ impl DeviceSchema {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ValueSchema {
     pub name: String,
     pub permission: Permission,
@@ -80,7 +80,7 @@ impl Default for ValueSchema {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct State {
     data: String,
     #[serde(rename = "type")]
@@ -100,13 +100,13 @@ impl State {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum StateType {
     REPORT,
     CONTROL,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct NumberSchema {
     pub min: f64,
     pub max: f64,
@@ -131,14 +131,14 @@ impl Default for NumberSchema {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Permission {
     R,
     W,
     RW,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Meta {
     pub id: Uuid,
     #[serde(rename = "type")]
@@ -164,7 +164,7 @@ impl Meta {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum MetaType {
     NETWORK,
     DEVICE,

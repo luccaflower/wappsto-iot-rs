@@ -13,6 +13,7 @@ pub mod fs_store;
 pub mod certs;
 pub mod connection;
 pub mod network;
+pub mod rpc;
 
 #[cfg(test)]
 mod network_test;

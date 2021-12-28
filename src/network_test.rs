@@ -76,13 +76,21 @@ mod network {
         let _device_1 = network.create_device("stuff");
         let _device_2 = network.create_device("other_stuff");
     }
+
+    #[test]
+    fn should_publish_itself_on_start() {
+        let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
+        network.start().unwrap();
+
+        assert!(network.connection().received(&network.id.to_string()))
+    }
 }
 
 pub mod device {
 
     use std::cell::RefCell;
 
-    use crate::network::{Device, Value, ValuePermission};
+    use crate::network::{Device, ValuePermission};
 
     #[test]
     fn should_create_new_value() {
@@ -98,8 +106,7 @@ pub mod device {
         let callback = |_: String| {
             *callback_was_called.borrow_mut() = true;
         };
-        let value: &mut Value =
-            device.create_value("test_value", ValuePermission::RW(Box::new(callback)));
+        let value = device.create_value("test_value", ValuePermission::RW(Box::new(callback)));
         value.control(String::new());
 
         assert!(*callback_was_called.borrow())
@@ -107,19 +114,21 @@ pub mod device {
 }
 
 pub mod connection {
-    use crate::{certs::Certs, connection::Connectable};
+    use crate::{certs::Certs, connection::Connect, rpc::Rpc};
     use std::error::Error;
 
     pub struct ConnectionMock {
         pub is_started: bool,
         pub was_closed: bool,
+        received: String,
     }
 
-    impl Connectable for ConnectionMock {
+    impl Connect for ConnectionMock {
         fn new(_certs: Certs) -> Self {
             Self {
                 is_started: false,
                 was_closed: false,
+                received: String::new(),
             }
         }
         fn start(&mut self) -> Result<(), Box<dyn Error>> {
@@ -129,6 +138,17 @@ pub mod connection {
 
         fn stop(&mut self) {
             self.was_closed = true;
+        }
+
+        fn send(&mut self, rpc: Rpc) {
+            self.received
+                .push_str(&serde_json::to_string(&rpc).unwrap())
+        }
+    }
+
+    impl ConnectionMock {
+        pub fn received(&self, term: &str) -> bool {
+            self.received.contains(term)
         }
     }
 }

@@ -3,7 +3,7 @@
 set -e
 
 echo '+cargo test'
-cargo test
+cargo test --lib
 echo '+cargo clippy -- -D warnings'
 cargo clippy -- -D warnings
 echo '+cargo fmt -- --check'
