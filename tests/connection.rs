@@ -1,10 +1,11 @@
 use dotenv;
 use std::env;
+use wappsto_iot_rs::aw;
+use wappsto_iot_rs::connection::Connect;
 use wappsto_iot_rs::create_network::{RequestBuilder, WappstoServers};
-use wappsto_iot_rs::{connection, fs_store};
+use wappsto_iot_rs::{certs::Certs, connection::Connection};
 
 #[test]
-#[ignore]
 fn connects_to_wappsto() {
     dotenv::dotenv().ok();
     let username =
@@ -18,7 +19,7 @@ fn connects_to_wappsto() {
         .send()
         .unwrap();
 
-    fs_store::save_certs(creator).unwrap();
+    let certs = Certs::new(&creator.ca, &creator.certificate, &creator.private_key);
 
-    assert!(connection::start().is_ok())
+    assert!(aw!(Connection::new(certs.unwrap()).start()).is_ok())
 }

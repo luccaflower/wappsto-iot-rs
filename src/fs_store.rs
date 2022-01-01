@@ -7,10 +7,36 @@ use crate::certs::Certs;
 use crate::create_network::{Creator, CreatorNetwork};
 use crate::schema::Schema;
 
-pub struct FsStore;
+pub struct FsStore {
+    certificates: String,
+}
 pub trait Store {
     fn load_certs(&self) -> Result<Certs, Box<dyn Error>>;
     fn save_schema(&mut self, schema: Schema) -> Result<(), Box<dyn Error>>;
+}
+
+impl FsStore {
+    pub fn new(certificates: &str) -> Self {
+        Self {
+            certificates: String::from(certificates),
+        }
+    }
+
+    pub fn save_certs_self(&self, creator: Creator) -> Result<(), Box<dyn Error>> {
+        DirBuilder::new().recursive(true).create("certificates")?;
+
+        write(self.certificates.clone() + "ca.crt", &creator.ca)?;
+        write(
+            self.certificates.clone() + "client.crt",
+            &creator.certificate,
+        )?;
+        write(
+            self.certificates.clone() + "client.key",
+            &creator.private_key,
+        )?;
+
+        Ok(())
+    }
 }
 
 impl Store for FsStore {
@@ -24,7 +50,7 @@ impl Store for FsStore {
 }
 impl Default for FsStore {
     fn default() -> Self {
-        Self {}
+        Self::new("certifcates/")
     }
 }
 
@@ -54,18 +80,6 @@ pub fn load_schema(id: Uuid) -> Result<Schema, Box<dyn Error>> {
         Ok(s) => Ok(s),
         Err(e) => Err(Box::new(e)),
     }
-}
-
-///Save the creator object into certificates
-pub fn save_certs(creator: Creator) -> Result<(), Box<dyn Error>> {
-    DirBuilder::new().recursive(true).create("certificates")?;
-
-    write("certificates/ca.crt", creator.ca)?;
-    write("certificates/client.crt", creator.certificate)?;
-    write("certificates/client.key", creator.private_key)?;
-    write("certificates/uuid", creator.network.id.to_string())?;
-
-    Ok(())
 }
 
 ///Load certifcates and return a creator object
