@@ -1,12 +1,17 @@
+use openssl::{
+    pkey::{PKey, Private},
+    rsa::Rsa,
+    x509::X509,
+};
 use std::error::Error;
 use uuid::Uuid;
 use x509_parser::pem::parse_x509_pem;
 
 pub struct Certs {
     pub id: Uuid,
-    pub ca: String,
-    pub certificate: String,
-    pub private_key: String,
+    pub ca: X509,
+    pub certificate: X509,
+    pub private_key: PKey<Private>,
 }
 
 impl Certs {
@@ -23,9 +28,10 @@ impl Certs {
         )?;
         Ok(Self {
             id,
-            ca: String::from(ca),
-            certificate: String::from(certificate),
-            private_key: String::from(private_key),
+            ca: X509::from_pem(ca.as_bytes()).unwrap(),
+            certificate: X509::from_pem(certificate_raw).unwrap(),
+            private_key: PKey::from_rsa(Rsa::private_key_from_pem(private_key.as_bytes()).unwrap())
+                .unwrap(),
         })
     }
 }

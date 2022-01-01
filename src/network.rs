@@ -42,8 +42,8 @@ where
         self.devices.entry(String::from(name)).or_default()
     }
 
-    pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
-        self.connection.start()?;
+    pub async fn start(&mut self) -> Result<(), Box<dyn Error>> {
+        self.connection.start().await?;
         self.connection.send(
             Rpc::builder()
                 .method(RpcMethod::POST)

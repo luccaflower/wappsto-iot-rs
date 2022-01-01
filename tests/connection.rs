@@ -4,6 +4,7 @@ use wappsto_iot_rs::create_network::{RequestBuilder, WappstoServers};
 use wappsto_iot_rs::{connection, fs_store};
 
 #[test]
+#[ignore]
 fn connects_to_wappsto() {
     dotenv::dotenv().ok();
     let username =

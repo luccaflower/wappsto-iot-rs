@@ -17,3 +17,4 @@ pub mod rpc;
 
 #[cfg(test)]
 mod network_test;
+pub mod test_await;

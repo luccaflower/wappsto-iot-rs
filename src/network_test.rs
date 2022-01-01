@@ -4,6 +4,7 @@ mod network {
     use crate::{
         network::{Device, Network},
         network_test::store::StoreMock,
+        test_await::aw,
     };
 
     use super::{connection::ConnectionMock, store::DEFAULT_ID};
@@ -11,27 +12,27 @@ mod network {
     #[test]
     fn should_start() {
         let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
-        assert!(network.start().is_ok())
+        assert!(aw!(network.start()).is_ok())
     }
 
     #[test]
     fn should_open_a_connection() {
         let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
-        network.start().expect("Failed to start");
+        aw!(network.start()).expect("Failed to start");
         assert!(network.connection().is_started);
     }
 
     #[test]
     fn should_load_certificates_on_startup() {
         let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
-        network.start().expect("Failed to start");
+        aw!(network.start()).expect("Failed to start");
         assert_eq!(DEFAULT_ID, &network.id.to_string())
     }
 
     #[test]
     fn should_close_connnection_on_stop() {
         let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
-        network.start().unwrap();
+        aw!(network.start()).unwrap();
         network.stop().unwrap();
         assert!(&network.connection().was_closed);
     }
@@ -39,7 +40,7 @@ mod network {
     #[test]
     fn should_save_schema_to_store_on_stop() {
         let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
-        network.start().unwrap();
+        aw!(network.start()).unwrap();
         network.stop().unwrap();
         assert_eq!(
             Uuid::parse_str(DEFAULT_ID).unwrap(),
@@ -80,7 +81,7 @@ mod network {
     #[test]
     fn should_publish_itself_on_start() {
         let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
-        network.start().unwrap();
+        aw!(network.start()).unwrap();
 
         assert!(network.connection().received(&network.id.to_string()))
     }
@@ -115,6 +116,7 @@ pub mod device {
 
 pub mod connection {
     use crate::{certs::Certs, connection::Connect, rpc::Rpc};
+    use async_trait::async_trait;
     use std::error::Error;
 
     pub struct ConnectionMock {
@@ -123,6 +125,7 @@ pub mod connection {
         received: String,
     }
 
+    #[async_trait]
     impl Connect for ConnectionMock {
         fn new(_certs: Certs) -> Self {
             Self {
@@ -131,7 +134,7 @@ pub mod connection {
                 received: String::new(),
             }
         }
-        fn start(&mut self) -> Result<(), Box<dyn Error>> {
+        async fn start(&mut self) -> Result<(), Box<dyn Error>> {
             self.is_started = true;
             Ok(())
         }
@@ -160,6 +163,8 @@ pub mod store {
     use std::{collections::HashMap, error::Error};
     pub const DEFAULT_ID: &str = "00000000-0000-0000-0000-000000000000";
 
+    use openssl::{pkey::PKey, x509::X509};
+
     pub struct StoreMock {
         schemas: HashMap<Uuid, Schema>,
     }
@@ -175,9 +180,9 @@ pub mod store {
         fn load_certs(&self) -> Result<Certs, Box<dyn Error>> {
             Ok(Certs {
                 id: Uuid::parse_str(DEFAULT_ID).unwrap(),
-                ca: String::from(""),
-                certificate: String::from(""),
-                private_key: String::from(""),
+                ca: X509::builder().unwrap().build(),
+                certificate: X509::builder().unwrap().build(),
+                private_key: PKey::generate_x448().unwrap(),
             })
         }
 
