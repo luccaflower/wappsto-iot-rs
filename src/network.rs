@@ -36,7 +36,7 @@ where
         Ok(Self {
             name: String::from(name),
             id: certs.id,
-            connection: C::new_servers(certs, server),
+            connection: C::new(certs, server),
             store,
             devices: HashMap::new(),
         })

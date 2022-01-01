@@ -131,7 +131,7 @@ pub mod connection {
 
     #[async_trait]
     impl Connect for ConnectionMock {
-        fn new_servers(_certs: Certs, _server: WappstoServers) -> Self {
+        fn new(_certs: Certs, _server: WappstoServers) -> Self {
             Self {
                 is_started: false,
                 was_closed: false,

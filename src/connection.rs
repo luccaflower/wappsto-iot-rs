@@ -26,7 +26,7 @@ pub struct Connection {
 
 #[async_trait]
 pub trait Connect {
-    fn new_servers(certs: Certs, server: WappstoServers) -> Self;
+    fn new(certs: Certs, server: WappstoServers) -> Self;
     async fn start(&mut self) -> Result<(), Box<dyn Error>>;
     fn stop(&mut self);
     fn send(&mut self, rpc: Rpc);
@@ -34,7 +34,7 @@ pub trait Connect {
 
 #[async_trait]
 impl Connect for Connection {
-    fn new_servers(certs: Certs, server: WappstoServers) -> Self {
+    fn new(certs: Certs, server: WappstoServers) -> Self {
         let url = match server {
             WappstoServers::DEV => DEV,
             WappstoServers::QA => QA,
