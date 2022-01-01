@@ -48,13 +48,7 @@ where
 
     pub async fn start(&mut self) -> Result<(), Box<dyn Error>> {
         self.connection.start().await?;
-        self.connection.send(
-            Rpc::builder()
-                .method(RpcMethod::POST)
-                .on_type(RpcType::NETWORK)
-                .data(self.schema())
-                .create(),
-        );
+        self.publish();
         Ok(())
     }
 
@@ -62,6 +56,16 @@ where
         self.connection.stop();
         self.store.save_schema(self.schema())?;
         Ok(())
+    }
+
+    fn publish(&mut self) {
+        self.connection.send(
+            Rpc::builder()
+                .method(RpcMethod::POST)
+                .on_type(RpcType::NETWORK)
+                .data(self.schema())
+                .create(),
+        );
     }
 
     fn schema(&self) -> Schema {
