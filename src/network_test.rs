@@ -115,7 +115,11 @@ pub mod device {
 }
 
 pub mod connection {
-    use crate::{certs::Certs, connection::Connect, rpc::Rpc};
+    use crate::{
+        certs::Certs,
+        connection::{Connect, WappstoServers},
+        rpc::Rpc,
+    };
     use async_trait::async_trait;
     use std::error::Error;
 
@@ -127,13 +131,14 @@ pub mod connection {
 
     #[async_trait]
     impl Connect for ConnectionMock {
-        fn new(_certs: Certs) -> Self {
+        fn new_servers(_certs: Certs, _server: WappstoServers) -> Self {
             Self {
                 is_started: false,
                 was_closed: false,
                 received: String::new(),
             }
         }
+
         async fn start(&mut self) -> Result<(), Box<dyn Error>> {
             self.is_started = true;
             Ok(())

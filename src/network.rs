@@ -3,7 +3,7 @@ use std::{collections::HashMap, error::Error};
 use uuid::Uuid;
 
 use crate::{
-    connection::{Connect, Connection},
+    connection::{Connect, Connection, WappstoServers},
     fs_store::{FsStore, Store},
     rpc::{Rpc, RpcMethod, RpcType},
     schema::{DeviceSchema, NumberSchema, Permission, Schema, ValueSchema},
@@ -27,12 +27,16 @@ where
     S: Store + Default,
 {
     pub fn new(name: &str) -> Result<Self, Box<dyn Error>> {
+        Self::new_at(WappstoServers::default(), name)
+    }
+
+    pub fn new_at(server: WappstoServers, name: &str) -> Result<Self, Box<dyn Error>> {
         let store = S::default();
         let certs = store.load_certs()?;
         Ok(Self {
             name: String::from(name),
             id: certs.id,
-            connection: C::new(certs),
+            connection: C::new_servers(certs, server),
             store,
             devices: HashMap::new(),
         })
