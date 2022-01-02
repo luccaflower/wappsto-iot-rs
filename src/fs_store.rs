@@ -4,11 +4,15 @@ use std::fs::{read_to_string, write, DirBuilder, File};
 use uuid::Uuid;
 
 use crate::certs::Certs;
-use crate::create_network::{Creator, CreatorNetwork};
 use crate::schema::Schema;
+
+const CA_FILE: &str = "ca.crt";
+const CERT_FILE: &str = "client.crt";
+const KEY_FILE: &str = "client.key";
 
 pub struct FsStore {
     certificates: String,
+    network_schema: String,
 }
 pub trait Store {
     fn load_certs(&self) -> Result<Certs, Box<dyn Error>>;
@@ -16,23 +20,29 @@ pub trait Store {
 }
 
 impl FsStore {
-    pub fn new(certificates: &str) -> Self {
+    pub fn new(certificates: &str, network_schema: &str) -> Self {
         Self {
             certificates: String::from(certificates),
+            network_schema: String::from(network_schema),
         }
     }
 
-    pub fn save_certs_self(&self, creator: Creator) -> Result<(), Box<dyn Error>> {
-        DirBuilder::new().recursive(true).create("certificates")?;
+    pub fn save_certs(&self, certs: Certs) -> Result<(), Box<dyn Error>> {
+        DirBuilder::new()
+            .recursive(true)
+            .create(&self.certificates)?;
 
-        write(self.certificates.clone() + "ca.crt", &creator.ca)?;
         write(
-            self.certificates.clone() + "client.crt",
-            &creator.certificate,
+            self.certificates.clone() + CA_FILE,
+            &certs.ca.to_pem().unwrap(),
         )?;
         write(
-            self.certificates.clone() + "client.key",
-            &creator.private_key,
+            self.certificates.clone() + CERT_FILE,
+            &certs.certificate.to_pem().unwrap(),
+        )?;
+        write(
+            self.certificates.clone() + KEY_FILE,
+            &certs.private_key.private_key_to_pem_pkcs8().unwrap(),
         )?;
 
         Ok(())
@@ -40,33 +50,33 @@ impl FsStore {
 }
 
 impl Store for FsStore {
+    ///Load certifcates from file store
     fn load_certs(&self) -> Result<Certs, Box<dyn Error>> {
-        unimplemented!("Load certs not implemented for FsStore")
+        let ca = read_to_string(self.certificates.clone() + CA_FILE)?;
+        let certificate = read_to_string(self.certificates.clone() + CERT_FILE)?;
+        let private_key = read_to_string(self.certificates.clone() + KEY_FILE)?;
+
+        Certs::new(&ca, &certificate, &private_key)
     }
 
-    fn save_schema(&mut self, _schema: Schema) -> Result<(), Box<dyn Error>> {
-        unimplemented!("Save schema not implemented for FsStore")
+    ///Save network schema to data store
+    fn save_schema(&mut self, schema: Schema) -> Result<(), Box<dyn Error>> {
+        DirBuilder::new()
+            .recursive(true)
+            .create(&self.network_schema)
+            .unwrap();
+
+        Ok(serde_json::to_writer(
+            &File::create(self.network_schema.clone() + &schema.meta.id.to_string() + ".json")
+                .unwrap(),
+            &schema,
+        )?)
     }
 }
 impl Default for FsStore {
     fn default() -> Self {
-        Self::new("certifcates/")
+        Self::new("certificates/", "network_instance/")
     }
-}
-
-///Save network schema to data store
-pub fn save_schema(schema: Schema) {
-    DirBuilder::new()
-        .recursive(true)
-        .create("network_instance")
-        .unwrap();
-
-    serde_json::to_writer(
-        &File::create("network_instance/".to_owned() + &schema.meta.id.to_string() + ".json")
-            .unwrap(),
-        &schema,
-    )
-    .unwrap();
 }
 
 ///Load network schema from data store
@@ -80,21 +90,4 @@ pub fn load_schema(id: Uuid) -> Result<Schema, Box<dyn Error>> {
         Ok(s) => Ok(s),
         Err(e) => Err(Box::new(e)),
     }
-}
-
-///Load certifcates and return a creator object
-pub fn load_certs() -> Result<Creator, Box<dyn Error>> {
-    let ca = read_to_string("certificates/ca.crt")?;
-    let certificate = read_to_string("certificates/client.crt")?;
-    let private_key = read_to_string("certificates/client.key")?;
-    let id = read_to_string("certificates/uuid")?;
-
-    Ok(Creator {
-        ca,
-        certificate,
-        private_key,
-        network: CreatorNetwork {
-            id: Uuid::parse_str(&id)?,
-        },
-    })
 }
