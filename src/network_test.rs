@@ -148,7 +148,7 @@ pub mod connection {
             self.was_closed = true;
         }
 
-        fn send(&mut self, rpc: Rpc) {
+        async fn send(&mut self, rpc: Rpc) {
             self.received
                 .push_str(&serde_json::to_string(&rpc).unwrap())
         }

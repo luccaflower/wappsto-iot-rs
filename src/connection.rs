@@ -1,12 +1,14 @@
 use async_trait::async_trait;
-use openssl::{
-    ssl::{SslConnector, SslMethod},
-    x509::store::X509StoreBuilder,
+
+use tokio_rustls::{
+    client::TlsStream,
+    rustls::{Certificate, ClientConfig, PrivateKey, RootCertStore, ServerName},
+    TlsConnector,
 };
 
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 use tokio::{
-    io::{split, ReadHalf, WriteHalf},
+    io::{split, AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
     net::TcpStream,
 };
 
@@ -19,8 +21,8 @@ const PROD: &str = "prod.wappsto.com:443";
 
 pub struct Connection {
     certs: Certs,
-    read: Option<ReadHalf<TcpStream>>,
-    write: Option<WriteHalf<TcpStream>>,
+    read: Option<ReadHalf<TlsStream<TcpStream>>>,
+    write: Option<WriteHalf<TlsStream<TcpStream>>>,
     url: &'static str,
 }
 
@@ -28,8 +30,8 @@ pub struct Connection {
 pub trait Connect {
     fn new(certs: Certs, server: WappstoServers) -> Self;
     async fn start(&mut self) -> Result<(), Box<dyn Error>>;
+    async fn send(&mut self, rpc: Rpc);
     fn stop(&mut self);
-    fn send(&mut self, rpc: Rpc);
 }
 
 #[async_trait]
@@ -50,25 +52,56 @@ impl Connect for Connection {
     }
 
     async fn start(&mut self) -> Result<(), Box<dyn Error>> {
-        let mut store = X509StoreBuilder::new()?;
-        store.add_cert(self.certs.ca.clone())?;
-        store.add_cert(self.certs.certificate.clone())?;
-        let store = store.build();
-        let mut ctx = SslConnector::builder(SslMethod::tls())?;
-        ctx.set_cert_store(store);
-        ctx.set_private_key(&self.certs.private_key)?;
+        let mut root_cert_store = RootCertStore::empty();
+        root_cert_store
+            .add(&Certificate(self.certs.ca.to_der().unwrap()))
+            .expect("adding root certificate");
+        println!("adding root certificate");
+
+        let config = ClientConfig::builder()
+            .with_safe_defaults()
+            .with_root_certificates(root_cert_store)
+            .with_single_cert(
+                vec![Certificate(self.certs.certificate.to_pem().unwrap())],
+                PrivateKey(self.certs.private_key.private_key_to_der().unwrap()),
+            )
+            .expect("adding client certificate");
+        println!("adding client certificate");
+        let config = TlsConnector::from(Arc::new(config));
+        println!("connecting...");
         let stream = TcpStream::connect(self.url).await?;
+        let stream = config
+            .connect(ServerName::try_from("qa.wappsto.com").unwrap(), stream)
+            .await?;
+        println!("connected");
         let (read, write) = split(stream);
         self.read = Some(read);
         self.write = Some(write);
 
         Ok(())
     }
+
+    async fn send(&mut self, rpc: Rpc) {
+        println!("{}", &serde_json::to_string(&rpc).unwrap());
+        self.write
+            .as_mut()
+            .unwrap()
+            .write_all(&serde_json::to_vec(&rpc).unwrap())
+            .await
+            .unwrap();
+        let mut buf = [0u8; 1024];
+        self.read
+            .as_mut()
+            .unwrap()
+            .read(&mut buf[..])
+            .await
+            .unwrap();
+        println!("{}", buf.iter().map(|c| *c as char).collect::<String>());
+    }
+
     fn stop(&mut self) {
         todo!("stop connection")
     }
-
-    fn send(&mut self, _rpc: Rpc) {}
 }
 
 pub enum WappstoServers {

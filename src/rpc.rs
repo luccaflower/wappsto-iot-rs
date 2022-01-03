@@ -8,7 +8,6 @@ pub struct Rpc {
     jsonrpc: String,
     method: RpcMethod,
     id: String,
-    meta: RpcMeta,
     params: RpcParams,
 }
 
@@ -22,7 +21,6 @@ impl Rpc {
             jsonrpc: String::from("2.0"),
             method,
             id: Uuid::new_v4().to_string(),
-            meta: RpcMeta::new(),
             params: RpcParams::new(rpc_type, data),
         }
     }
@@ -72,16 +70,6 @@ pub enum RpcMethod {
 #[derive(Serialize)]
 pub enum RpcType {
     NETWORK,
-}
-
-#[derive(Serialize)]
-pub struct RpcMeta;
-
-impl RpcMeta {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self
-    }
 }
 
 #[derive(Serialize)]
