@@ -48,6 +48,7 @@ where
 
     pub async fn start(&mut self) -> Result<(), Box<dyn Error>> {
         self.connection.start().await?;
+        println!("Network ID published:     {}", self.id);
         self.publish().await;
         Ok(())
     }

@@ -1,4 +1,4 @@
-use chrono::Local;
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -94,7 +94,7 @@ impl State {
         State {
             data: String::new(),
             state_type,
-            timestamp: Local::now().format("%Y-%m-%dT%H:%M:%S.%fZ").to_string(),
+            timestamp: Utc::now().format("%Y-%m-%dT%H:%M:%S.%fZ").to_string(),
             meta: Meta::new(MetaType::STATE),
         }
     }
@@ -102,7 +102,9 @@ impl State {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum StateType {
+    #[serde(rename = "Report")]
     REPORT,
+    #[serde(rename = "Control")]
     CONTROL,
 }
 
@@ -132,6 +134,7 @@ impl Default for NumberSchema {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "lowercase")]
 pub enum Permission {
     R,
     W,
@@ -165,6 +168,7 @@ impl Meta {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "lowercase")]
 pub enum MetaType {
     NETWORK,
     DEVICE,

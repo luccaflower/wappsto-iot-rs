@@ -68,6 +68,7 @@ pub enum RpcMethod {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum RpcType {
     NETWORK,
 }
@@ -82,9 +83,8 @@ impl RpcParams {
     pub fn new(rpc_type: RpcType, data: Schema) -> Self {
         let url = String::from("/")
             + match rpc_type {
-                RpcType::NETWORK => "network/",
-            }
-            + &data.meta.id.to_string();
+                RpcType::NETWORK => "network",
+            };
         Self { url, data }
     }
 }

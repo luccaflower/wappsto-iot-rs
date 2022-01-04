@@ -67,8 +67,6 @@ impl Connect for Connection {
             .add(&Certificate(self.certs.ca.to_der().unwrap()))
             .unwrap();
 
-        println!("adding root certificate");
-
         let config = ClientConfig::builder()
             .with_safe_defaults()
             .with_root_certificates(root_cert_store)
@@ -77,18 +75,15 @@ impl Connect for Connection {
                 PrivateKey(self.certs.private_key.private_key_to_der().unwrap()),
             )
             .expect("adding client certificate");
-        println!("adding client certificate");
         let connector = TlsConnector::from(Arc::new(config));
-        println!("connecting to {}...", &self.url);
         let stream = TcpStream::connect(&self.url).await?;
         let stream = connector
             .connect(ServerName::try_from("qa.wappsto.com").unwrap(), stream)
             .await?;
-
-        println!("connected");
         let (read, write) = split(stream);
         self.read = Some(read);
         self.write = Some(write);
+        println!("Network ID from cert:     {}", self.certs.id);
 
         Ok(())
     }
@@ -101,14 +96,13 @@ impl Connect for Connection {
             .write_all(serde_json::to_string(&rpc).unwrap().as_bytes())
             .await
             .unwrap();
-        let mut buf = [0; 1024];
+        let mut buf = [0; 4096];
         sleep(Duration::from_millis(1000));
         let bytes = self.read.as_mut().unwrap().read(&mut buf).await.unwrap();
         println!(
             "{:?}",
             buf[..bytes].iter().map(|x| *x as char).collect::<String>()
         );
-        todo!()
     }
 
     fn stop(&mut self) {
