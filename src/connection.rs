@@ -1,12 +1,14 @@
 use async_trait::async_trait;
 
+use rustls::OwnedTrustAnchor;
 use tokio_rustls::{
     client::TlsStream,
     rustls::{Certificate, ClientConfig, PrivateKey, RootCertStore, ServerName},
     TlsConnector,
 };
+use webpki_roots::TLS_SERVER_ROOTS;
 
-use std::{error::Error, sync::Arc};
+use std::{error::Error, sync::Arc, thread::sleep, time::Duration};
 use tokio::{
     io::{split, AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
     net::TcpStream,
@@ -52,27 +54,37 @@ impl Connect for Connection {
     }
 
     async fn start(&mut self) -> Result<(), Box<dyn Error>> {
+        sleep(Duration::from_millis(1000));
         let mut root_cert_store = RootCertStore::empty();
+        root_cert_store.add_server_trust_anchors(TLS_SERVER_ROOTS.0.iter().map(|ta| {
+            OwnedTrustAnchor::from_subject_spki_name_constraints(
+                ta.subject,
+                ta.spki,
+                ta.name_constraints,
+            )
+        }));
         root_cert_store
             .add(&Certificate(self.certs.ca.to_der().unwrap()))
-            .expect("adding root certificate");
+            .unwrap();
+
         println!("adding root certificate");
 
         let config = ClientConfig::builder()
             .with_safe_defaults()
             .with_root_certificates(root_cert_store)
             .with_single_cert(
-                vec![Certificate(self.certs.certificate.to_pem().unwrap())],
+                vec![Certificate(self.certs.certificate.to_der().unwrap())],
                 PrivateKey(self.certs.private_key.private_key_to_der().unwrap()),
             )
             .expect("adding client certificate");
         println!("adding client certificate");
-        let config = TlsConnector::from(Arc::new(config));
-        println!("connecting...");
-        let stream = TcpStream::connect(self.url).await?;
-        let stream = config
+        let connector = TlsConnector::from(Arc::new(config));
+        println!("connecting to {}...", &self.url);
+        let stream = TcpStream::connect(&self.url).await?;
+        let stream = connector
             .connect(ServerName::try_from("qa.wappsto.com").unwrap(), stream)
             .await?;
+
         println!("connected");
         let (read, write) = split(stream);
         self.read = Some(read);
@@ -86,17 +98,17 @@ impl Connect for Connection {
         self.write
             .as_mut()
             .unwrap()
-            .write_all(&serde_json::to_vec(&rpc).unwrap())
+            .write_all(serde_json::to_string(&rpc).unwrap().as_bytes())
             .await
             .unwrap();
-        let mut buf = [0u8; 1024];
-        self.read
-            .as_mut()
-            .unwrap()
-            .read(&mut buf[..])
-            .await
-            .unwrap();
-        println!("{}", buf.iter().map(|c| *c as char).collect::<String>());
+        let mut buf = [0; 1024];
+        sleep(Duration::from_millis(1000));
+        let bytes = self.read.as_mut().unwrap().read(&mut buf).await.unwrap();
+        println!(
+            "{:?}",
+            buf[..bytes].iter().map(|x| *x as char).collect::<String>()
+        );
+        todo!()
     }
 
     fn stop(&mut self) {
