@@ -7,7 +7,7 @@ use uuid::Uuid;
 ///as various kinds of metadata required by Wappsto. Network schemas can be generated
 ///programmatically using [SchemaBuilder] and [DeviceBuilder]. The full JSON schematic can be found
 ///[here](https://wappsto.com/services/2.0/network/schema).
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Schema {
     pub name: String,
     pub meta: Meta,
@@ -24,7 +24,7 @@ impl Schema {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DeviceSchema {
     pub name: String,
     pub value: Vec<ValueSchema>,
@@ -41,7 +41,7 @@ impl DeviceSchema {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ValueSchema {
     pub name: String,
     pub permission: Permission,
@@ -80,7 +80,7 @@ impl Default for ValueSchema {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct State {
     data: String,
     #[serde(rename = "type")]
@@ -100,7 +100,7 @@ impl State {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum StateType {
     #[serde(rename = "Report")]
     REPORT,
@@ -108,7 +108,7 @@ pub enum StateType {
     CONTROL,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NumberSchema {
     pub min: f64,
     pub max: f64,
@@ -133,7 +133,7 @@ impl Default for NumberSchema {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum Permission {
     R,
@@ -141,7 +141,7 @@ pub enum Permission {
     RW,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Meta {
     pub id: Uuid,
     #[serde(rename = "type")]
@@ -167,7 +167,7 @@ impl Meta {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum MetaType {
     NETWORK,

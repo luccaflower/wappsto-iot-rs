@@ -17,6 +17,7 @@ pub struct FsStore {
 pub trait Store {
     fn load_certs(&self) -> Result<Certs, Box<dyn Error>>;
     fn save_schema(&mut self, schema: Schema) -> Result<(), Box<dyn Error>>;
+    fn load_schema(&self, id: Uuid) -> Option<Schema>;
 }
 
 impl FsStore {
@@ -72,22 +73,21 @@ impl Store for FsStore {
             &schema,
         )?)
     }
+    ///Load network schema from data store
+    fn load_schema(&self, id: Uuid) -> Option<Schema> {
+        let contents =
+            match read_to_string(String::from(&self.network_schema) + &id.to_string() + ".json") {
+                Ok(s) => s,
+                Err(_) => return None,
+            };
+        match serde_json::from_str(&contents) {
+            Ok(s) => Some(s),
+            Err(_) => None,
+        }
+    }
 }
 impl Default for FsStore {
     fn default() -> Self {
         Self::new("certificates/", "network_instance/")
-    }
-}
-
-///Load network schema from data store
-pub fn load_schema(id: Uuid) -> Result<Schema, Box<dyn Error>> {
-    let contents = match read_to_string("network_instance/".to_owned() + &id.to_string() + ".json")
-    {
-        Ok(s) => s,
-        Err(e) => return Err(Box::new(e)),
-    };
-    match serde_json::from_str(&contents) {
-        Ok(s) => Ok(s),
-        Err(e) => Err(Box::new(e)),
     }
 }

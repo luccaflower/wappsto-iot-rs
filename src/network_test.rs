@@ -1,9 +1,13 @@
 mod network {
+    use std::str::FromStr;
+
     use uuid::Uuid;
 
     use crate::{
+        fs_store::Store,
         network::{Device, Network},
         network_test::store::StoreMock,
+        schema::{DeviceSchema, Schema},
         test_await::aw,
     };
 
@@ -23,7 +27,7 @@ mod network {
     }
 
     #[test]
-    fn should_load_certificates_on_startup() {
+    fn should_load_certificates_on_start() {
         let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
         aw!(network.start()).expect("Failed to start");
         assert_eq!(DEFAULT_ID, &network.id.to_string())
@@ -51,6 +55,28 @@ mod network {
                 .meta
                 .id
         )
+    }
+
+    #[test]
+    fn should_load_schema_from_store_on_creation() {
+        let mut schema = Schema::new("test", Uuid::from_str(&DEFAULT_ID).unwrap());
+        let device = DeviceSchema::new("test_device", Uuid::new_v4());
+        schema.device.push(device);
+        let mut store = StoreMock::default();
+        store.save_schema(schema).unwrap();
+        println!("Printing all schemas:");
+        store.schemas.iter().for_each(|(_, network)| {
+            println!("Network: {}", network.name);
+            network
+                .device
+                .iter()
+                .for_each(|device| println!("Device: {}", device.name))
+        });
+        println!("----------------------");
+        let mut network: Network<ConnectionMock, StoreMock> =
+            Network::new_with_store("test", store);
+        assert!(!network.devices().is_empty());
+        assert!(network.devices().contains_key("test_device"))
     }
 
     #[test]
@@ -171,14 +197,7 @@ pub mod store {
     use openssl::{pkey::PKey, x509::X509};
 
     pub struct StoreMock {
-        schemas: HashMap<Uuid, Schema>,
-    }
-
-    impl StoreMock {
-        pub fn load_schema(&self, id: Uuid) -> Option<Schema> {
-            let schema = self.schemas.get(&id).unwrap();
-            Some(Schema::new("", schema.meta.id))
-        }
+        pub schemas: HashMap<Uuid, Schema>,
     }
 
     impl Store for StoreMock {
@@ -192,8 +211,29 @@ pub mod store {
         }
 
         fn save_schema(&mut self, schema: Schema) -> Result<(), Box<dyn Error>> {
+            println!("Saving schema with id: {}", schema.meta.id);
+            let id = schema.meta.id.clone();
             self.schemas.insert(schema.meta.id, schema);
+            match self.schemas.get(&id) {
+                Some(_) => println!("Retrievable"),
+                None => println!("Not retrievable"),
+            }
             Ok(())
+        }
+
+        fn load_schema(&self, id: Uuid) -> Option<Schema> {
+            println!("Loading schema with id: {}", id);
+            println!("All schema id's:");
+            self.schemas
+                .iter()
+                .for_each(|(id, _)| println!("Id: {}", id));
+            println!("----------------");
+            let schema = self.schemas.get(&id);
+            match schema {
+                Some(_) => println!("Found!"),
+                None => println!("Not found!"),
+            }
+            schema.cloned()
         }
     }
 

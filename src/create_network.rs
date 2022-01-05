@@ -97,7 +97,6 @@ impl<'a> RequestBuilder<'a, WithCredentials> {
             .send()?;
 
         let creator: Creator = response.json()?;
-        println!("Network ID from creator:  {}", creator.network.id);
 
         Ok(creator)
     }

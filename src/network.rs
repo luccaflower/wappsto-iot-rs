@@ -3,6 +3,7 @@ use std::{collections::HashMap, error::Error};
 use uuid::Uuid;
 
 use crate::{
+    certs::Certs,
     connection::{Connect, Connection, WappstoServers},
     fs_store::{FsStore, Store},
     rpc::{Rpc, RpcMethod, RpcType},
@@ -33,12 +34,14 @@ where
     pub fn new_at(server: WappstoServers, name: &str) -> Result<Self, Box<dyn Error>> {
         let store = S::default();
         let certs = store.load_certs()?;
+        println!("Cert ID: {}", certs.id);
+        let devices = Self::parse_schema(&store, &certs);
         Ok(Self {
             name: String::from(name),
             id: certs.id,
             connection: C::new(certs, server),
             store,
-            devices: HashMap::new(),
+            devices,
         })
     }
 
@@ -48,7 +51,6 @@ where
 
     pub async fn start(&mut self) -> Result<(), Box<dyn Error>> {
         self.connection.start().await?;
-        println!("Network ID published:     {}", self.id);
         self.publish().await;
         Ok(())
     }
@@ -100,6 +102,39 @@ where
         schema
     }
 
+    fn parse_schema(store: &S, certs: &Certs) -> HashMap<String, Device<'a>> {
+        if let Some(schema) = store.load_schema(certs.id) {
+            println!("Loading schema");
+            schema
+                .device
+                .into_iter()
+                .map(|d| {
+                    println!(
+                        "Adding device to schema. Id: {}, Name: {}",
+                        d.meta.id, d.name
+                    );
+                    let mut device = Device::new(d.meta.id);
+                    device.values = d
+                        .value
+                        .into_iter()
+                        .map(|v| {
+                            let value = Value::new(match v.permission {
+                                Permission::R => ValuePermission::R,
+                                Permission::W => ValuePermission::W(Box::new(|_| {})),
+                                Permission::RW => ValuePermission::RW(Box::new(|_| {})),
+                            });
+                            (v.name, value)
+                        })
+                        .collect::<HashMap<String, Value>>();
+                    (d.name, device)
+                })
+                .collect::<HashMap<String, Device>>()
+        } else {
+            println!("Schema not found");
+            HashMap::new()
+        }
+    }
+
     #[cfg(test)]
     pub fn connection(&self) -> &C {
         &self.connection
@@ -113,6 +148,20 @@ where
     #[cfg(test)]
     pub fn devices(&mut self) -> &mut HashMap<String, Device<'a>> {
         &mut self.devices
+    }
+
+    #[cfg(test)]
+    pub fn new_with_store(name: &str, store: S) -> Self {
+        let certs = store.load_certs().unwrap();
+        let id = certs.id;
+        let devices = Self::parse_schema(&store, &certs);
+        Self {
+            name: String::from(name),
+            id,
+            store,
+            devices,
+            connection: C::new(certs, WappstoServers::default()),
+        }
     }
 }
 

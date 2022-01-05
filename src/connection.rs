@@ -83,13 +83,11 @@ impl Connect for Connection {
         let (read, write) = split(stream);
         self.read = Some(read);
         self.write = Some(write);
-        println!("Network ID from cert:     {}", self.certs.id);
 
         Ok(())
     }
 
     async fn send(&mut self, rpc: Rpc) {
-        println!("{}", &serde_json::to_string(&rpc).unwrap());
         self.write
             .as_mut()
             .unwrap()
