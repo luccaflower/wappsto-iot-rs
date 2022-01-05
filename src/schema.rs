@@ -4,8 +4,7 @@ use uuid::Uuid;
 
 ///A Schema represents the internal data structure of an IoT client as understood by Wappsto. These
 ///schemas are referred to as "networks", and they may contain devices, values for devices, as well
-///as various kinds of metadata required by Wappsto. Network schemas can be generated
-///programmatically using [SchemaBuilder] and [DeviceBuilder]. The full JSON schematic can be found
+///as various kinds of metadata required by Wappsto. The full JSON schematic can be found
 ///[here](https://wappsto.com/services/2.0/network/schema).
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Schema {
@@ -18,7 +17,7 @@ impl Schema {
     pub fn new(name: &str, id: Uuid) -> Self {
         Schema {
             name: name.to_owned(),
-            meta: Meta::new_with_uuid(id, MetaType::NETWORK),
+            meta: Meta::new_with_uuid(id, MetaType::Network),
             device: vec![],
         }
     }
@@ -36,7 +35,7 @@ impl DeviceSchema {
         DeviceSchema {
             name: name.to_owned(),
             value: vec![],
-            meta: Meta::new_with_uuid(id, MetaType::DEVICE),
+            meta: Meta::new_with_uuid(id, MetaType::Device),
         }
     }
 }
@@ -53,11 +52,11 @@ pub struct ValueSchema {
 impl ValueSchema {
     pub fn new(name: String, permission: Permission, number: NumberSchema) -> Self {
         let state = match permission {
-            Permission::R => vec![State::new(StateType::REPORT)],
-            Permission::W => vec![State::new(StateType::CONTROL)],
+            Permission::R => vec![State::new(StateType::Report)],
+            Permission::W => vec![State::new(StateType::Control)],
             Permission::RW => vec![
-                State::new(StateType::REPORT),
-                State::new(StateType::CONTROL),
+                State::new(StateType::Report),
+                State::new(StateType::Control),
             ],
         };
         ValueSchema {
@@ -65,7 +64,7 @@ impl ValueSchema {
             permission,
             number,
             state,
-            meta: Meta::new(MetaType::VALUE),
+            meta: Meta::new(MetaType::Value),
         }
     }
 }
@@ -95,7 +94,7 @@ impl State {
             data: String::new(),
             state_type,
             timestamp: Utc::now().format("%Y-%m-%dT%H:%M:%S.%fZ").to_string(),
-            meta: Meta::new(MetaType::STATE),
+            meta: Meta::new(MetaType::State),
         }
     }
 }
@@ -103,9 +102,9 @@ impl State {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum StateType {
     #[serde(rename = "Report")]
-    REPORT,
+    Report,
     #[serde(rename = "Control")]
-    CONTROL,
+    Control,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -170,8 +169,8 @@ impl Meta {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum MetaType {
-    NETWORK,
-    DEVICE,
-    VALUE,
-    STATE,
+    Network,
+    Device,
+    Value,
+    State,
 }

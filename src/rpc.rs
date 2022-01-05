@@ -36,8 +36,8 @@ impl RpcBuilder {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
-            method: RpcMethod::POST,
-            rpc_type: RpcType::NETWORK,
+            method: RpcMethod::Post,
+            rpc_type: RpcType::Network,
             data: Schema::new("", Uuid::new_v4()),
         }
     }
@@ -64,13 +64,13 @@ impl RpcBuilder {
 
 #[derive(Serialize)]
 pub enum RpcMethod {
-    POST,
+    Post,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RpcType {
-    NETWORK,
+    Network,
 }
 
 #[derive(Serialize)]
@@ -83,7 +83,7 @@ impl RpcParams {
     pub fn new(rpc_type: RpcType, data: Schema) -> Self {
         let url = String::from("/")
             + match rpc_type {
-                RpcType::NETWORK => "network",
+                RpcType::Network => "network",
             };
         Self { url, data }
     }

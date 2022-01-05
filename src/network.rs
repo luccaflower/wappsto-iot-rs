@@ -65,8 +65,8 @@ where
         self.connection
             .send(
                 Rpc::builder()
-                    .method(RpcMethod::POST)
-                    .on_type(RpcType::NETWORK)
+                    .method(RpcMethod::Post)
+                    .on_type(RpcType::Network)
                     .data(self.schema())
                     .create(),
             )
