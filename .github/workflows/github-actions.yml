@@ -23,6 +23,11 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
+          
+      - name: Run Cargo Doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
 
       - name: Run Cargo build with --release
         uses: actions-rs/cargo@v1
