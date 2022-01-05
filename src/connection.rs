@@ -104,7 +104,8 @@ impl Connect for Connection {
     }
 
     fn stop(&mut self) {
-        todo!("stop connection")
+        self.write = None;
+        self.read = None;
     }
 }
 
