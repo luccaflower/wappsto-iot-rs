@@ -50,7 +50,7 @@ pub struct ValueSchema {
 }
 
 impl ValueSchema {
-    pub fn new(name: String, permission: Permission, number: NumberSchema) -> Self {
+    pub fn new(name: &str, permission: Permission, number: NumberSchema) -> Self {
         let state = match permission {
             Permission::R => vec![State::new(StateType::Report)],
             Permission::W => vec![State::new(StateType::Control)],
@@ -60,7 +60,7 @@ impl ValueSchema {
             ],
         };
         ValueSchema {
-            name,
+            name: String::from(name),
             permission,
             number,
             state,
@@ -71,11 +71,7 @@ impl ValueSchema {
 
 impl Default for ValueSchema {
     fn default() -> Self {
-        ValueSchema::new(
-            String::from("State"),
-            Permission::R,
-            NumberSchema::default(),
-        )
+        ValueSchema::new("State", Permission::R, NumberSchema::default())
     }
 }
 
