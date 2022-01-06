@@ -16,16 +16,17 @@ use tokio::{
 
 use crate::{certs::Certs, rpc::Rpc};
 
-const DEV: &str = "dev.wappsto.com:52005";
-const QA: &str = "qa.wappsto.com:53005";
-const STAGING: &str = "staging.wappsto.com:54005";
-const PROD: &str = "prod.wappsto.com:443";
+const DEV: &[&str] = &["dev.", ":52005"];
+const QA: &[&str] = &["qa.", ":53005"];
+const STAGING: &[&str] = &["staging.", ":54005"];
+const PROD: &[&str] = &["", ":443"];
+const BASE_URL: &str = "wappsto.com";
 
 pub struct Connection {
     certs: Certs,
     read: Option<ReadHalf<TlsStream<TcpStream>>>,
     write: Option<WriteHalf<TlsStream<TcpStream>>>,
-    url: &'static str,
+    url: &'static [&'static str],
 }
 
 #[async_trait]
@@ -76,9 +77,12 @@ impl Connect for Connection {
             )
             .expect("adding client certificate");
         let connector = TlsConnector::from(Arc::new(config));
-        let stream = TcpStream::connect(&self.url).await?;
+        let stream = TcpStream::connect(self.url[0].to_owned() + BASE_URL + self.url[1]).await?;
         let stream = connector
-            .connect(ServerName::try_from("qa.wappsto.com").unwrap(), stream)
+            .connect(
+                ServerName::try_from((self.url[0].to_owned() + BASE_URL).as_str()).unwrap(),
+                stream,
+            )
             .await?;
         let (read, write) = split(stream);
         self.read = Some(read);
