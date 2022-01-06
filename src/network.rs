@@ -34,7 +34,6 @@ where
     pub fn new_at(server: WappstoServers, name: &str) -> Result<Self, Box<dyn Error>> {
         let store = S::default();
         let certs = store.load_certs()?;
-        println!("Cert ID: {}", certs.id);
         let devices = Self::parse_schema(&store, &certs);
         Ok(Self {
             name: String::from(name),
@@ -77,14 +76,12 @@ where
 
     fn parse_schema(store: &S, certs: &Certs) -> HashMap<String, Device<'a>> {
         if let Some(schema) = store.load_schema(certs.id) {
-            println!("Loading schema");
             schema
                 .device
                 .into_iter()
                 .map(|d| (d.name.clone(), Device::from(d)))
                 .collect::<HashMap<String, Device>>()
         } else {
-            println!("Schema not found");
             HashMap::new()
         }
     }
