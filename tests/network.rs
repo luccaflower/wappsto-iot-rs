@@ -4,7 +4,7 @@ mod support {
     pub(crate) mod aw;
     pub(crate) mod rest;
 }
-use support::rest::create_network;
+use support::rest::rest::create_network;
 
 #[test]
 fn publishes_new_network_to_wappsto() {

@@ -191,7 +191,7 @@ impl From<DeviceSchema> for Device<'_> {
 pub struct Value<'a> {
     name: String,
     id: Uuid,
-    control: Option<ControlState<'a>>,
+    pub control: Option<ControlState<'a>>,
     report: Option<ReportState>,
 }
 
@@ -264,7 +264,7 @@ impl From<Permission> for ValuePermission<'_> {
 }
 
 #[allow(dead_code)]
-struct ControlState<'a> {
+pub struct ControlState<'a> {
     pub id: Uuid,
     pub callback: Box<dyn FnMut(String) + 'a>,
 }
