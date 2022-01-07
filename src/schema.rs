@@ -51,6 +51,9 @@ pub struct ValueSchema {
 
 impl ValueSchema {
     pub fn new(name: &str, permission: Permission, number: NumberSchema) -> Self {
+        Self::new_with_id(name, permission, number, Uuid::new_v4())
+    }
+    pub fn new_with_id(name: &str, permission: Permission, number: NumberSchema, id: Uuid) -> Self {
         let state = match permission {
             Permission::R => vec![State::new(StateType::Report)],
             Permission::W => vec![State::new(StateType::Control)],
@@ -64,7 +67,7 @@ impl ValueSchema {
             permission,
             number,
             state,
-            meta: Meta::new(MetaType::Value),
+            meta: Meta::new_with_uuid(id, MetaType::Value),
         }
     }
 }

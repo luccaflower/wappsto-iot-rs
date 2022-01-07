@@ -1,9 +1,12 @@
 use dotenv;
 use std::env;
-use wappsto_iot_rs::aw;
 use wappsto_iot_rs::connection::Connect;
 use wappsto_iot_rs::create_network::{RequestBuilder, WappstoServers};
 use wappsto_iot_rs::{certs::Certs, connection::Connection};
+
+mod support {
+    pub(crate) mod aw;
+}
 
 #[test]
 fn connects_to_wappsto() {

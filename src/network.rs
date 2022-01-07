@@ -190,12 +190,17 @@ impl From<DeviceSchema> for Device<'_> {
 
 pub struct Value<'a> {
     name: String,
+    id: Uuid,
     control: Option<ControlState<'a>>,
     report: Option<ReportState>,
 }
 
 impl<'a> Value<'a> {
     pub fn new(name: &str, permission: ValuePermission<'a>) -> Self {
+        Self::new_with_id(name, permission, Uuid::new_v4())
+    }
+
+    pub fn new_with_id(name: &str, permission: ValuePermission<'a>, id: Uuid) -> Self {
         let (report, control) = match permission {
             ValuePermission::RW(f) => (
                 Some(ReportState::new(Uuid::new_v4())),
@@ -207,10 +212,12 @@ impl<'a> Value<'a> {
 
         Self {
             name: String::from(name),
+            id,
             report,
             control,
         }
     }
+
     #[cfg(test)]
     pub fn control(&mut self, data: String) {
         (self.control.as_mut().unwrap().callback)(data)
@@ -219,7 +226,11 @@ impl<'a> Value<'a> {
 
 impl From<ValueSchema> for Value<'_> {
     fn from(schema: ValueSchema) -> Self {
-        Self::new(&schema.name, ValuePermission::from(schema.permission))
+        Self::new_with_id(
+            &schema.name,
+            ValuePermission::from(schema.permission),
+            schema.meta.id,
+        )
     }
 }
 
@@ -232,7 +243,7 @@ impl Into<ValueSchema> for &Value<'_> {
             (None, Some(_)) => Permission::W,
             _ => panic!("Invalid permission"),
         };
-        ValueSchema::new(&self.name, permission, NumberSchema::default())
+        ValueSchema::new_with_id(&self.name, permission, NumberSchema::default(), self.id)
     }
 }
 

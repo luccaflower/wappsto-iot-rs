@@ -22,5 +22,5 @@ mod schema;
 #[cfg(test)]
 mod network_test;
 
-#[doc(hidden)]
+#[cfg(test)]
 pub mod test_await;

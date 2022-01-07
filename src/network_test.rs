@@ -64,15 +64,6 @@ mod network {
         schema.device.push(device);
         let mut store = StoreMock::default();
         store.save_schema(schema).unwrap();
-        println!("Printing all schemas:");
-        store.schemas.iter().for_each(|(_, network)| {
-            println!("Network: {}", network.name);
-            network
-                .device
-                .iter()
-                .for_each(|device| println!("Device: {}", device.name))
-        });
-        println!("----------------------");
         let mut network: Network<ConnectionMock, StoreMock> =
             Network::new_with_store("test", store);
         assert!(!network.devices().is_empty());
