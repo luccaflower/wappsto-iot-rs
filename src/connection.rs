@@ -14,7 +14,7 @@ use tokio::{
     net::TcpStream,
 };
 
-use crate::{certs::Certs, rpc::Rpc};
+use crate::{certs::Certs, rpc::RpcRequest};
 
 const DEV: &[&str] = &["dev.", ":52005"];
 const QA: &[&str] = &["qa.", ":53005"];
@@ -33,7 +33,7 @@ pub struct Connection {
 pub trait Connect {
     fn new(certs: Certs, server: WappstoServers) -> Self;
     async fn start(&mut self) -> Result<(), Box<dyn Error>>;
-    async fn send(&mut self, rpc: Rpc);
+    async fn send(&mut self, rpc: RpcRequest);
     fn stop(&mut self);
 }
 
@@ -91,7 +91,7 @@ impl Connect for Connection {
         Ok(())
     }
 
-    async fn send(&mut self, rpc: Rpc) {
+    async fn send(&mut self, rpc: RpcRequest) {
         self.write
             .as_mut()
             .unwrap()

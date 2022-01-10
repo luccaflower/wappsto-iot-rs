@@ -135,7 +135,7 @@ pub mod connection {
     use crate::{
         certs::Certs,
         connection::{Connect, WappstoServers},
-        rpc::Rpc,
+        rpc::RpcRequest,
     };
     use async_trait::async_trait;
     use std::error::Error;
@@ -165,7 +165,7 @@ pub mod connection {
             self.was_closed = true;
         }
 
-        async fn send(&mut self, rpc: Rpc) {
+        async fn send(&mut self, rpc: RpcRequest) {
             self.received
                 .push_str(&serde_json::to_string(&rpc).unwrap())
         }

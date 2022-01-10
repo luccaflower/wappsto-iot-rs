@@ -1,12 +1,11 @@
 use std::{collections::HashMap, error::Error};
-
 use uuid::Uuid;
 
 use crate::{
     certs::Certs,
     connection::{Connect, Connection, WappstoServers},
     fs_store::{FsStore, Store},
-    rpc::{Rpc, RpcMethod, RpcType},
+    rpc::{RpcData, RpcMethod, RpcRequest, RpcType},
     schema::{DeviceSchema, NumberSchema, Permission, Schema, ValueSchema},
 };
 
@@ -65,10 +64,10 @@ where
         let schema: Schema = self.into();
         self.connection
             .send(
-                Rpc::builder()
+                RpcRequest::builder()
                     .method(RpcMethod::Post)
                     .on_type(RpcType::Network)
-                    .data(schema)
+                    .data(RpcData::Schema(schema))
                     .create(),
             )
             .await;

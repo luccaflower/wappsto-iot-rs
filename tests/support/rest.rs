@@ -6,7 +6,7 @@ pub mod rest {
     };
     use serde::{Deserialize, Serialize};
     use serde_json::json;
-    use std::{env, error::Error, io::Read};
+    use std::{env, error::Error};
     use uuid::Uuid;
     use wappsto_iot_rs::{certs::Certs, create_network::RequestBuilder, fs_store::FsStore};
 

@@ -1,22 +1,23 @@
-use serde::Serialize;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::schema::Schema;
+use crate::schema::{Meta, Schema};
 
-#[derive(Serialize)]
-pub struct Rpc {
+#[derive(Serialize, Deserialize)]
+pub struct RpcRequest {
     jsonrpc: String,
     method: RpcMethod,
     id: String,
-    params: RpcParams,
+    pub params: RpcParams,
 }
 
-impl Rpc {
-    pub fn builder() -> RpcBuilder {
-        RpcBuilder::new()
+impl RpcRequest {
+    pub fn builder() -> RpcRequestBuilder {
+        RpcRequestBuilder::new()
     }
 
-    pub fn new(method: RpcMethod, rpc_type: RpcType, data: Schema) -> Rpc {
+    pub fn new(method: RpcMethod, rpc_type: RpcType, data: RpcData) -> RpcRequest {
         Self {
             jsonrpc: String::from("2.0"),
             method,
@@ -26,19 +27,19 @@ impl Rpc {
     }
 }
 
-pub struct RpcBuilder {
+pub struct RpcRequestBuilder {
     method: RpcMethod,
     rpc_type: RpcType,
-    data: Schema,
+    data: RpcData,
 }
 
-impl RpcBuilder {
+impl RpcRequestBuilder {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             method: RpcMethod::Post,
             rpc_type: RpcType::Network,
-            data: Schema::new("", Uuid::new_v4()),
+            data: RpcData::None,
         }
     }
 
@@ -52,39 +53,68 @@ impl RpcBuilder {
         self
     }
 
-    pub fn data(mut self, schema: Schema) -> Self {
-        self.data = schema;
+    pub fn data(mut self, data: RpcData) -> Self {
+        self.data = data;
         self
     }
 
-    pub fn create(self) -> Rpc {
-        Rpc::new(self.method, self.rpc_type, self.data)
+    pub fn create(self) -> RpcRequest {
+        RpcRequest::new(self.method, self.rpc_type, self.data)
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub enum RpcMethod {
     Post,
+    Put,
+    Patch,
+    Get,
+    Delete,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RpcType {
     Network,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct RpcParams {
     url: String,
-    data: Schema,
+    pub data: RpcData,
 }
 
 impl RpcParams {
-    pub fn new(rpc_type: RpcType, data: Schema) -> Self {
+    pub fn new(rpc_type: RpcType, data: RpcData) -> Self {
         let url = String::from("/")
             + match rpc_type {
                 RpcType::Network => "network",
             };
         Self { url, data }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RpcData {
+    Schema(Schema),
+    Data(RpcStateData),
+    None,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct RpcStateData {
+    pub data: String,
+    timestamp: DateTime<Utc>,
+    pub meta: Meta,
+}
+
+impl RpcStateData {
+    pub fn new(data: &str, timestamp: DateTime<Utc>, meta: Meta) -> Self {
+        Self {
+            data: String::from(data),
+            timestamp,
+            meta,
+        }
     }
 }
