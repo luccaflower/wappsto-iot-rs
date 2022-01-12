@@ -12,6 +12,8 @@ fn publishes_new_network_to_wappsto() {
     let mut network: Network = Network::new_at(WappstoServers::QA, "test").unwrap();
     let device = network.create_device("thing");
     device.create_value("value", ValuePermission::RW(Box::new(|_| {})));
-    assert!(aw!(network.start()).is_ok());
-    assert!(network.stop().is_ok())
+    println!("start network");
+    network.start().expect("Failed to start network");
+    assert!(network.stop().is_ok());
+    std::mem::forget(network);
 }

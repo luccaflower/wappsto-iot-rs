@@ -1,50 +1,45 @@
 mod network {
-    use std::str::FromStr;
+    use std::{str::FromStr, thread::sleep, time::Duration};
 
     use uuid::Uuid;
 
     use crate::{
         fs_store::Store,
         network::{Device, Network},
-        network_test::store::StoreMock,
+        network_test::{connection::WrappedSendMock, store::StoreMock},
         schema::{DeviceSchema, Schema},
-        test_await::aw,
     };
 
     use super::{connection::ConnectionMock, store::DEFAULT_ID};
 
     #[test]
     fn should_start() {
-        let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
-        assert!(aw!(network.start()).is_ok())
+        let mut network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
+        assert!(network.start().is_ok())
     }
 
     #[test]
     fn should_open_a_connection() {
-        let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
-        aw!(network.start()).expect("Failed to start");
+        let mut network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
+        network.start().expect("Failed to start");
         assert!(network.connection().is_started);
     }
 
     #[test]
     fn should_load_certificates_on_start() {
-        let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
-        aw!(network.start()).expect("Failed to start");
+        let mut network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
+        network.start().expect("Failed to start");
         assert_eq!(DEFAULT_ID, &network.id.to_string())
     }
 
     #[test]
-    fn should_close_connnection_on_stop() {
-        let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
-        aw!(network.start()).unwrap();
-        network.stop().unwrap();
-        assert!(&network.connection().was_closed);
-    }
-
-    #[test]
     fn should_save_schema_to_store_on_stop() {
-        let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
-        aw!(network.start()).unwrap();
+        let mut network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
+        network.start().unwrap();
         network.stop().unwrap();
         assert_eq!(
             Uuid::parse_str(DEFAULT_ID).unwrap(),
@@ -64,7 +59,7 @@ mod network {
         schema.device.push(device);
         let mut store = StoreMock::default();
         store.save_schema(schema).unwrap();
-        let mut network: Network<ConnectionMock, StoreMock> =
+        let mut network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
             Network::new_with_store("test", store);
         assert!(!network.devices().is_empty());
         assert!(network.devices().contains_key("test_device"))
@@ -72,7 +67,8 @@ mod network {
 
     #[test]
     fn should_create_new_device() {
-        let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
+        let mut network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
 
         network.create_device("test device");
         assert!(network.devices().get("test device").is_some())
@@ -80,7 +76,8 @@ mod network {
 
     #[test]
     fn should_load_existing_device() {
-        let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
+        let mut network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
         let devices = network.devices();
         let device = Device::default();
         let expected_id = device.id.clone();
@@ -90,17 +87,19 @@ mod network {
 
     #[test]
     fn should_create_multiple_devices() {
-        let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
+        let mut network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
         let _device_1 = network.create_device("stuff");
         let _device_2 = network.create_device("other_stuff");
     }
 
     #[test]
     fn should_publish_itself_on_start() {
-        let mut network: Network<ConnectionMock, StoreMock> = Network::new("test").unwrap();
-        aw!(network.start()).unwrap();
-
-        assert!(network.connection().received(&network.id.to_string()))
+        let mut network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
+        network.start().unwrap();
+        sleep(Duration::from_millis(50));
+        assert!(network.send.unwrap().received(&network.id.to_string()))
     }
 }
 
@@ -134,46 +133,48 @@ pub mod device {
 pub mod connection {
     use crate::{
         certs::Certs,
-        connection::{Connect, WappstoServers},
-        rpc::RpcRequest,
+        connection::{Connect, WappstoServers, WrappedSend},
     };
-    use async_trait::async_trait;
-    use std::error::Error;
+    use std::{cell::RefCell, error::Error};
 
     pub struct ConnectionMock {
         pub is_started: bool,
         pub was_closed: bool,
-        received: String,
     }
 
-    #[async_trait]
-    impl Connect for ConnectionMock {
+    impl Connect<WrappedSendMock> for ConnectionMock {
         fn new(_certs: Certs, _server: WappstoServers) -> Self {
             Self {
                 is_started: false,
                 was_closed: false,
-                received: String::new(),
             }
         }
 
-        async fn start(&mut self) -> Result<(), Box<dyn Error>> {
+        fn start(&mut self) -> Result<Box<WrappedSendMock>, Box<dyn Error>> {
             self.is_started = true;
-            Ok(())
-        }
-
-        fn stop(&mut self) {
-            self.was_closed = true;
-        }
-
-        async fn send(&mut self, rpc: RpcRequest) {
-            self.received
-                .push_str(&serde_json::to_string(&rpc).unwrap())
+            Ok(Box::new(WrappedSendMock::new()))
         }
     }
 
-    impl ConnectionMock {
+    pub struct WrappedSendMock {
+        received: RefCell<String>,
+    }
+
+    impl WrappedSendMock {
+        pub fn new() -> Self {
+            Self {
+                received: RefCell::new(String::new()),
+            }
+        }
+
         pub fn received(&self, term: &str) -> bool {
-            self.received.contains(term)
+            self.received.borrow().contains(term)
+        }
+    }
+    impl WrappedSend for WrappedSendMock {
+        fn send(&self, msg: String) -> Result<(), Box<dyn Error>> {
+            self.received.borrow_mut().push_str(&msg);
+            Ok(())
         }
     }
 }
@@ -202,29 +203,13 @@ pub mod store {
         }
 
         fn save_schema(&mut self, schema: Schema) -> Result<(), Box<dyn Error>> {
-            println!("Saving schema with id: {}", schema.meta.id);
-            let id = schema.meta.id.clone();
             self.schemas.insert(schema.meta.id, schema);
-            match self.schemas.get(&id) {
-                Some(_) => println!("Retrievable"),
-                None => println!("Not retrievable"),
-            }
+
             Ok(())
         }
 
         fn load_schema(&self, id: Uuid) -> Option<Schema> {
-            println!("Loading schema with id: {}", id);
-            println!("All schema id's:");
-            self.schemas
-                .iter()
-                .for_each(|(id, _)| println!("Id: {}", id));
-            println!("----------------");
-            let schema = self.schemas.get(&id);
-            match schema {
-                Some(_) => println!("Found!"),
-                None => println!("Not found!"),
-            }
-            schema.cloned()
+            self.schemas.get(&id).cloned()
         }
     }
 

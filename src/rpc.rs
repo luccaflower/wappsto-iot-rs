@@ -109,6 +109,7 @@ pub struct RpcStateData {
     pub meta: Meta,
 }
 
+#[cfg(test)]
 impl RpcStateData {
     pub fn new(data: &str, timestamp: DateTime<Utc>, meta: Meta) -> Self {
         Self {

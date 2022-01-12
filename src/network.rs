@@ -3,35 +3,38 @@ use uuid::Uuid;
 
 use crate::{
     certs::Certs,
-    connection::{Connect, Connection, WappstoServers},
+    connection::{Connect, Connection, SendChannel, WappstoServers, WrappedSend},
     fs_store::{FsStore, Store},
     rpc::{RpcData, RpcMethod, RpcRequest, RpcType},
     schema::{DeviceSchema, NumberSchema, Permission, Schema, ValueSchema},
 };
 
-pub struct Network<'a, C = Connection, S = FsStore>
+pub struct Network<'a, C = Connection, St = FsStore, Se = SendChannel>
 where
-    C: Connect,
-    S: Store + Default,
+    C: Connect<Se>,
+    St: Store + Default,
+    Se: WrappedSend,
 {
     pub name: String,
     pub id: Uuid,
     connection: C,
-    store: S,
+    store: St,
     devices: HashMap<String, Device<'a>>,
+    pub send: Option<Box<Se>>,
 }
 
-impl<'a, C, S> Network<'a, C, S>
+impl<'a, C, St, Se> Network<'a, C, St, Se>
 where
-    C: Connect,
-    S: Store + Default,
+    C: Connect<Se>,
+    St: Store + Default,
+    Se: WrappedSend,
 {
     pub fn new(name: &str) -> Result<Self, Box<dyn Error>> {
         Self::new_at(WappstoServers::default(), name)
     }
 
     pub fn new_at(server: WappstoServers, name: &str) -> Result<Self, Box<dyn Error>> {
-        let store = S::default();
+        let store = St::default();
         let certs = store.load_certs()?;
         let devices = Self::parse_schema(&store, &certs);
         Ok(Self {
@@ -40,6 +43,7 @@ where
             connection: C::new(certs, server),
             store,
             devices,
+            send: None,
         })
     }
 
@@ -47,33 +51,31 @@ where
         self.devices.entry(String::from(name)).or_default()
     }
 
-    pub async fn start(&mut self) -> Result<(), Box<dyn Error>> {
-        self.connection.start().await?;
-        self.publish().await;
+    pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
+        self.send = Some(self.connection.start()?);
+        self.publish()?;
         Ok(())
     }
 
     pub fn stop(&mut self) -> Result<(), Box<dyn Error>> {
         let schema: Schema = self.into();
-        self.connection.stop();
         self.store.save_schema(schema)?;
         Ok(())
     }
 
-    async fn publish(&mut self) {
+    fn publish(&mut self) -> Result<(), Box<dyn Error>> {
         let schema: Schema = self.into();
-        self.connection
-            .send(
-                RpcRequest::builder()
-                    .method(RpcMethod::Post)
-                    .on_type(RpcType::Network)
-                    .data(RpcData::Schema(schema))
-                    .create(),
-            )
-            .await;
+        self.send.as_ref().unwrap().send(serde_json::to_string(
+            &RpcRequest::builder()
+                .method(RpcMethod::Post)
+                .on_type(RpcType::Network)
+                .data(RpcData::Schema(schema))
+                .create(),
+        )?)?;
+        Ok(())
     }
 
-    fn parse_schema(store: &S, certs: &Certs) -> HashMap<String, Device<'a>> {
+    fn parse_schema(store: &St, certs: &Certs) -> HashMap<String, Device<'a>> {
         if let Some(schema) = store.load_schema(certs.id) {
             schema
                 .device
@@ -91,7 +93,7 @@ where
     }
 
     #[cfg(test)]
-    pub fn store(&self) -> &S {
+    pub fn store(&self) -> &St {
         &self.store
     }
 
@@ -101,7 +103,7 @@ where
     }
 
     #[cfg(test)]
-    pub fn new_with_store(name: &str, store: S) -> Self {
+    pub fn new_with_store(name: &str, store: St) -> Self {
         let certs = store.load_certs().unwrap();
         let id = certs.id;
         let devices = Self::parse_schema(&store, &certs);
@@ -111,15 +113,17 @@ where
             store,
             devices,
             connection: C::new(certs, WappstoServers::default()),
+            send: None,
         }
     }
 }
 
 #[allow(clippy::from_over_into)]
-impl<C, S> Into<Schema> for &mut Network<'_, C, S>
+impl<C, St, Se> Into<Schema> for &mut Network<'_, C, St, Se>
 where
-    C: Connect,
-    S: Store + Default,
+    C: Connect<Se>,
+    St: Store + Default,
+    Se: WrappedSend,
 {
     fn into(self) -> Schema {
         let mut schema = Schema::new(&self.name, self.id);

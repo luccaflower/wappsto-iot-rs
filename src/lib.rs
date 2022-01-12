@@ -16,7 +16,7 @@ pub mod connection;
 ///The main entry point for the user. Manages creation of network, devices, and values.
 pub mod network;
 
-pub mod receiver;
+pub mod communication;
 
 mod rpc;
 mod schema;
@@ -25,7 +25,10 @@ mod schema;
 mod network_test;
 
 #[cfg(test)]
-mod receiver_test;
+mod communication_test;
 
 #[cfg(test)]
 pub mod test_await;
+
+#[cfg(test)]
+mod stream_mock;

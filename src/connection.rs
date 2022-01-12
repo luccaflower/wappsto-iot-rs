@@ -1,44 +1,38 @@
-use async_trait::async_trait;
+use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
 
-use rustls::OwnedTrustAnchor;
-use tokio_rustls::{
-    client::TlsStream,
-    rustls::{Certificate, ClientConfig, PrivateKey, RootCertStore, ServerName},
-    TlsConnector,
-};
-use webpki_roots::TLS_SERVER_ROOTS;
-
-use std::{error::Error, sync::Arc, thread::sleep, time::Duration};
-use tokio::{
-    io::{split, AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
-    net::TcpStream,
+use std::{
+    collections::HashMap,
+    error::Error,
+    path::Path,
+    sync::{mpsc::Sender, Arc},
+    thread::sleep,
+    time::Duration,
 };
 
-use crate::{certs::Certs, rpc::RpcRequest};
+use crate::{certs::Certs, communication};
 
 const DEV: &[&str] = &["dev.", ":52005"];
 const QA: &[&str] = &["qa.", ":53005"];
 const STAGING: &[&str] = &["staging.", ":54005"];
 const PROD: &[&str] = &["", ":443"];
+#[allow(dead_code)]
 const BASE_URL: &str = "wappsto.com";
 
 pub struct Connection {
     certs: Certs,
-    read: Option<ReadHalf<TlsStream<TcpStream>>>,
-    write: Option<WriteHalf<TlsStream<TcpStream>>>,
+    #[allow(dead_code)]
     url: &'static [&'static str],
 }
 
-#[async_trait]
-pub trait Connect {
+pub trait Connect<Se>
+where
+    Se: WrappedSend,
+{
     fn new(certs: Certs, server: WappstoServers) -> Self;
-    async fn start(&mut self) -> Result<(), Box<dyn Error>>;
-    async fn send(&mut self, rpc: RpcRequest);
-    fn stop(&mut self);
+    fn start(&mut self) -> Result<Box<Se>, Box<dyn Error>>;
 }
 
-#[async_trait]
-impl Connect for Connection {
+impl Connect<SendChannel> for Connection {
     fn new(certs: Certs, server: WappstoServers) -> Self {
         let url = match server {
             WappstoServers::DEV => DEV,
@@ -46,70 +40,53 @@ impl Connect for Connection {
             WappstoServers::STAGING => STAGING,
             WappstoServers::PROD => PROD,
         };
-        Self {
-            certs,
-            read: None,
-            write: None,
-            url,
-        }
+        Self { certs, url }
     }
 
-    async fn start(&mut self) -> Result<(), Box<dyn Error>> {
+    fn start(&mut self) -> Result<Box<SendChannel>, Box<dyn Error>> {
         sleep(Duration::from_millis(1000));
-        let mut root_cert_store = RootCertStore::empty();
-        root_cert_store.add_server_trust_anchors(TLS_SERVER_ROOTS.0.iter().map(|ta| {
-            OwnedTrustAnchor::from_subject_spki_name_constraints(
-                ta.subject,
-                ta.spki,
-                ta.name_constraints,
-            )
-        }));
-        root_cert_store
-            .add(&Certificate(self.certs.ca.to_der().unwrap()))
-            .unwrap();
+        let mut ctx = SslConnector::builder(SslMethod::tls())?;
+        println!("set ca");
+        ctx.set_ca_file(Path::new("certificates/ca.crt"))?;
+        println!("ca: {:?}", &self.certs.ca);
+        println!("set cert");
+        ctx.set_certificate_file(Path::new("certificates/client.crt"), SslFiletype::PEM)?;
+        println!("set private key");
+        ctx.set_private_key_file(Path::new("certificates/client.key"), SslFiletype::PEM)?;
 
-        let config = ClientConfig::builder()
-            .with_safe_defaults()
-            .with_root_certificates(root_cert_store)
-            .with_single_cert(
-                vec![Certificate(self.certs.certificate.to_der().unwrap())],
-                PrivateKey(self.certs.private_key.private_key_to_der().unwrap()),
-            )
-            .expect("adding client certificate");
-        let connector = TlsConnector::from(Arc::new(config));
-        let stream = TcpStream::connect(self.url[0].to_owned() + BASE_URL + self.url[1]).await?;
-        let stream = connector
-            .connect(
-                ServerName::try_from((self.url[0].to_owned() + BASE_URL).as_str()).unwrap(),
-                stream,
-            )
-            .await?;
-        let (read, write) = split(stream);
-        self.read = Some(read);
-        self.write = Some(write);
+        println!("raw socket");
+        let stream = std::net::TcpStream::connect("qa.wappsto.com:53005")?;
+        println!("tls wrapped socket");
+        let stream = ctx.build().connect("qa.wappsto.com", stream)?;
 
+        println!("set non-blocking");
+        stream.get_ref().set_nonblocking(true)?;
+
+        Ok(Box::new(SendChannel::new(communication::start(
+            HashMap::new(),
+            stream,
+        ))))
+    }
+}
+
+pub struct SendChannel {
+    send: Arc<Sender<String>>,
+}
+
+pub trait WrappedSend {
+    fn send(&self, msg: String) -> Result<(), Box<dyn Error>>;
+}
+
+impl WrappedSend for SendChannel {
+    fn send(&self, msg: String) -> Result<(), Box<dyn Error>> {
+        self.send.send(msg)?;
         Ok(())
     }
+}
 
-    async fn send(&mut self, rpc: RpcRequest) {
-        self.write
-            .as_mut()
-            .unwrap()
-            .write_all(serde_json::to_string(&rpc).unwrap().as_bytes())
-            .await
-            .unwrap();
-        let mut buf = [0; 4096];
-        sleep(Duration::from_millis(1000));
-        let bytes = self.read.as_mut().unwrap().read(&mut buf).await.unwrap();
-        println!(
-            "{:?}",
-            buf[..bytes].iter().map(|x| *x as char).collect::<String>()
-        );
-    }
-
-    fn stop(&mut self) {
-        self.write = None;
-        self.read = None;
+impl SendChannel {
+    pub fn new(send: Arc<Sender<String>>) -> Self {
+        Self { send }
     }
 }
 

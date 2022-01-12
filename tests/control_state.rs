@@ -1,13 +1,13 @@
 mod support {
     pub(crate) mod rest;
 }
-use std::cell::RefCell;
+use std::{cell::RefCell, thread::sleep, time::Duration};
 
 use support::rest::rest::{create_network, credentials, RestServer, RestSession};
 use wappsto_iot_rs::network::{Network, ValuePermission};
 
 #[test]
-#[ignore = "not implemented"]
+#[ignore]
 fn should_handle_incoming_control_state() {
     create_network().expect("Failed to create network");
     let callback_was_called = RefCell::new(false);
@@ -18,6 +18,7 @@ fn should_handle_incoming_control_state() {
     let value = device.create_value("test_value", ValuePermission::W(Box::new(callback)));
     let control_id = value.control.as_ref().unwrap().id.clone();
     let (username, password) = credentials();
+    sleep(Duration::from_millis(500));
     RestSession::new(&username, &password, RestServer::Qa)
         .control(control_id, "1")
         .unwrap();
