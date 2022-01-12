@@ -23,6 +23,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
+          args: --no-fail-fast
           
       - name: Run Cargo Doc
         uses: actions-rs/cargo@v1
