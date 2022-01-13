@@ -1,14 +1,16 @@
 use openssl::ssl::{SslConnector, SslMethod};
 
 use std::{
-    collections::HashMap,
     error::Error,
     sync::{mpsc::Sender, Arc},
     thread::sleep,
     time::Duration,
 };
 
-use crate::{certs::Certs, communication};
+use crate::{
+    certs::Certs,
+    communication::{self, CallbackMap},
+};
 
 const DEV: &[&str] = &["dev.", ":52005"];
 const QA: &[&str] = &["qa.", ":53005"];
@@ -27,7 +29,7 @@ where
     Se: WrappedSend,
 {
     fn new(certs: Certs, server: WappstoServers) -> Self;
-    fn start(&mut self) -> Result<Box<Se>, Box<dyn Error>>;
+    fn start(&mut self, callbacks: CallbackMap) -> Result<Se, Box<dyn Error>>;
 }
 
 impl Connect<SendChannel> for Connection {
@@ -41,7 +43,7 @@ impl Connect<SendChannel> for Connection {
         Self { certs, url }
     }
 
-    fn start(&mut self) -> Result<Box<SendChannel>, Box<dyn Error>> {
+    fn start(&mut self, callbacks: CallbackMap) -> Result<SendChannel, Box<dyn Error>> {
         sleep(Duration::from_millis(1000));
         let mut ctx = SslConnector::builder(SslMethod::tls())?;
         ctx.cert_store_mut().add_cert(self.certs.ca.clone())?;
@@ -56,10 +58,7 @@ impl Connect<SendChannel> for Connection {
 
         stream.get_ref().set_nonblocking(true)?;
 
-        Ok(Box::new(SendChannel::new(communication::start(
-            HashMap::new(),
-            stream,
-        ))))
+        Ok(SendChannel::new(communication::start(callbacks, stream)))
     }
 }
 

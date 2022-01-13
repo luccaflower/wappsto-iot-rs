@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::rpc::{RpcData, RpcRequest};
 
-type CallbackMap = HashMap<Uuid, Box<dyn FnMut(String) + Send + Sync>>;
+pub type CallbackMap = HashMap<Uuid, Box<dyn FnMut(String) + Send + Sync>>;
 
 pub fn start<T>(callbacks: CallbackMap, stream: T) -> Arc<Sender<String>>
 where
@@ -31,12 +31,12 @@ where
     let callbacks = callbacks.clone();
 
     thread::spawn(move || {
-        read_thread_sync(callbacks, read);
+        read_thread(callbacks, read);
     });
     send
 }
 
-fn read_thread_sync<T>(callbacks: Arc<Mutex<CallbackMap>>, read: Arc<Mutex<T>>)
+fn read_thread<T>(callbacks: Arc<Mutex<CallbackMap>>, read: Arc<Mutex<T>>)
 where
     T: Read + Write + Send + 'static,
 {

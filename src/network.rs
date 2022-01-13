@@ -1,15 +1,16 @@
-use std::{collections::HashMap, error::Error};
+use std::{cell::RefCell, collections::HashMap, error::Error};
 use uuid::Uuid;
 
 use crate::{
     certs::Certs,
+    communication::CallbackMap,
     connection::{Connect, Connection, SendChannel, WappstoServers, WrappedSend},
     fs_store::{FsStore, Store},
     rpc::{RpcData, RpcMethod, RpcRequest, RpcType},
     schema::{DeviceSchema, NumberSchema, Permission, Schema, ValueSchema},
 };
 
-pub struct Network<'a, C = Connection, St = FsStore, Se = SendChannel>
+pub struct Network<C = Connection, St = FsStore, Se = SendChannel>
 where
     C: Connect<Se>,
     St: Store + Default,
@@ -19,11 +20,11 @@ where
     pub id: Uuid,
     connection: C,
     store: St,
-    devices: HashMap<String, Device<'a>>,
-    pub send: Option<Box<Se>>,
+    devices: HashMap<String, Device>,
+    pub send: Option<Se>,
 }
 
-impl<'a, C, St, Se> Network<'a, C, St, Se>
+impl<C, St, Se> Network<C, St, Se>
 where
     C: Connect<Se>,
     St: Store + Default,
@@ -47,12 +48,12 @@ where
         })
     }
 
-    pub fn create_device(&mut self, name: &str) -> &mut Device<'a> {
+    pub fn create_device(&mut self, name: &str) -> &mut Device {
         self.devices.entry(String::from(name)).or_default()
     }
 
     pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
-        self.send = Some(self.connection.start()?);
+        self.send = Some(self.connection.start(self.callbacks())?);
         self.publish()?;
         Ok(())
     }
@@ -75,7 +76,7 @@ where
         Ok(())
     }
 
-    fn parse_schema(store: &St, certs: &Certs) -> HashMap<String, Device<'a>> {
+    fn parse_schema(store: &St, certs: &Certs) -> HashMap<String, Device> {
         if let Some(schema) = store.load_schema(certs.id) {
             schema
                 .device
@@ -87,9 +88,24 @@ where
         }
     }
 
+    fn callbacks(&self) -> CallbackMap {
+        self.devices
+            .iter()
+            .fold(HashMap::new(), |mut all_callbacks, (_, device)| {
+                device.values.iter().for_each(|(_, value)| {
+                    value
+                        .control
+                        .borrow_mut()
+                        .take()
+                        .and_then(|c| all_callbacks.insert(c.id, c.callback));
+                });
+                all_callbacks
+            })
+    }
+
     #[cfg(test)]
-    pub fn connection(&self) -> &C {
-        &self.connection
+    pub fn connection(&mut self) -> &mut C {
+        &mut self.connection
     }
 
     #[cfg(test)]
@@ -98,7 +114,7 @@ where
     }
 
     #[cfg(test)]
-    pub fn devices(&mut self) -> &mut HashMap<String, Device<'a>> {
+    pub fn devices(&mut self) -> &mut HashMap<String, Device> {
         &mut self.devices
     }
 
@@ -119,7 +135,7 @@ where
 }
 
 #[allow(clippy::from_over_into)]
-impl<C, St, Se> Into<Schema> for &mut Network<'_, C, St, Se>
+impl<C, St, Se> Into<Schema> for &mut Network<C, St, Se>
 where
     C: Connect<Se>,
     St: Store + Default,
@@ -136,13 +152,13 @@ where
     }
 }
 
-pub struct Device<'a> {
+pub struct Device {
     pub name: String,
     pub id: Uuid,
-    values: HashMap<String, Value<'a>>,
+    values: HashMap<String, Value>,
 }
 
-impl<'a> Device<'a> {
+impl Device {
     pub fn new(name: &str, id: Uuid) -> Self {
         Self {
             name: String::from(name),
@@ -152,26 +168,26 @@ impl<'a> Device<'a> {
     }
 
     #[allow(clippy::mut_from_ref)]
-    pub fn create_value(&mut self, name: &str, permission: ValuePermission<'a>) -> &mut Value<'a> {
+    pub fn create_value(&mut self, name: &str, permission: ValuePermission) -> &mut Value {
         self.values
             .entry(String::from(name))
             .or_insert_with(|| Value::new(name, permission))
     }
 
     #[cfg(test)]
-    pub fn values(&self) -> &HashMap<String, Value<'a>> {
+    pub fn values(&self) -> &HashMap<String, Value> {
         &self.values
     }
 }
 
-impl Default for Device<'_> {
+impl Default for Device {
     fn default() -> Self {
         Self::new("", Uuid::new_v4())
     }
 }
 
 #[allow(clippy::from_over_into)]
-impl Into<DeviceSchema> for &Device<'_> {
+impl Into<DeviceSchema> for &Device {
     fn into(self) -> DeviceSchema {
         let mut schema = DeviceSchema::new(&self.name, self.id);
         schema.value = self.values.iter().map(|(_, value)| value.into()).collect();
@@ -179,7 +195,7 @@ impl Into<DeviceSchema> for &Device<'_> {
     }
 }
 
-impl From<DeviceSchema> for Device<'_> {
+impl From<DeviceSchema> for Device {
     fn from(schema: DeviceSchema) -> Self {
         let mut device = Device::new(&schema.name, schema.meta.id);
         device.values = schema
@@ -191,26 +207,29 @@ impl From<DeviceSchema> for Device<'_> {
     }
 }
 
-pub struct Value<'a> {
+pub struct Value {
     name: String,
     id: Uuid,
-    pub control: Option<ControlState<'a>>,
+    pub control: RefCell<Option<ControlState>>,
     report: Option<ReportState>,
 }
 
-impl<'a> Value<'a> {
-    pub fn new(name: &str, permission: ValuePermission<'a>) -> Self {
+impl Value {
+    pub fn new(name: &str, permission: ValuePermission) -> Self {
         Self::new_with_id(name, permission, Uuid::new_v4())
     }
 
-    pub fn new_with_id(name: &str, permission: ValuePermission<'a>, id: Uuid) -> Self {
+    pub fn new_with_id(name: &str, permission: ValuePermission, id: Uuid) -> Self {
         let (report, control) = match permission {
             ValuePermission::RW(f) => (
                 Some(ReportState::new(Uuid::new_v4())),
-                Some(ControlState::new(Uuid::new_v4(), f)),
+                RefCell::new(Some(ControlState::new(Uuid::new_v4(), f))),
             ),
-            ValuePermission::R => (Some(ReportState::new(Uuid::new_v4())), None),
-            ValuePermission::W(f) => (None, Some(ControlState::new(Uuid::new_v4(), f))),
+            ValuePermission::R => (Some(ReportState::new(Uuid::new_v4())), RefCell::new(None)),
+            ValuePermission::W(f) => (
+                None,
+                RefCell::new(Some(ControlState::new(Uuid::new_v4(), f))),
+            ),
         };
 
         Self {
@@ -223,11 +242,11 @@ impl<'a> Value<'a> {
 
     #[cfg(test)]
     pub fn control(&mut self, data: String) {
-        (self.control.as_mut().unwrap().callback)(data)
+        (self.control.borrow_mut().as_mut().unwrap().callback)(data)
     }
 }
 
-impl From<ValueSchema> for Value<'_> {
+impl From<ValueSchema> for Value {
     fn from(schema: ValueSchema) -> Self {
         Self::new_with_id(
             &schema.name,
@@ -238,9 +257,9 @@ impl From<ValueSchema> for Value<'_> {
 }
 
 #[allow(clippy::from_over_into)]
-impl Into<ValueSchema> for &Value<'_> {
+impl Into<ValueSchema> for &Value {
     fn into(self) -> ValueSchema {
-        let permission = match (self.report.as_ref(), self.control.as_ref()) {
+        let permission = match (self.report.as_ref(), self.control.borrow().as_ref()) {
             (Some(_), Some(_)) => Permission::RW,
             (Some(_), None) => Permission::R,
             (None, Some(_)) => Permission::W,
@@ -250,13 +269,13 @@ impl Into<ValueSchema> for &Value<'_> {
     }
 }
 
-pub enum ValuePermission<'a> {
-    RW(Box<dyn FnMut(String) + 'a>),
+pub enum ValuePermission {
+    RW(Box<dyn FnMut(String) + Send + Sync>),
     R,
-    W(Box<dyn FnMut(String) + 'a>),
+    W(Box<dyn FnMut(String) + Send + Sync>),
 }
 
-impl From<Permission> for ValuePermission<'_> {
+impl From<Permission> for ValuePermission {
     fn from(permission: Permission) -> Self {
         match permission {
             Permission::R => ValuePermission::R,
@@ -267,9 +286,9 @@ impl From<Permission> for ValuePermission<'_> {
 }
 
 #[allow(dead_code)]
-pub struct ControlState<'a> {
+pub struct ControlState {
     pub id: Uuid,
-    pub callback: Box<dyn FnMut(String) + 'a>,
+    pub callback: Box<dyn FnMut(String) + Send + Sync>,
 }
 
 #[allow(dead_code)]
@@ -277,8 +296,8 @@ struct ReportState {
     pub id: Uuid,
 }
 
-impl<'a> ControlState<'a> {
-    pub fn new(id: Uuid, callback: Box<dyn FnMut(String) + 'a>) -> Self {
+impl ControlState {
+    pub fn new(id: Uuid, callback: Box<dyn FnMut(String) + Send + Sync>) -> Self {
         Self { id, callback }
     }
 }

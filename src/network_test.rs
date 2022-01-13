@@ -1,13 +1,20 @@
 mod network {
-    use std::{str::FromStr, thread::sleep, time::Duration};
+    use std::{
+        str::FromStr,
+        sync::{Arc, Mutex},
+        thread::sleep,
+        time::Duration,
+    };
 
+    use chrono::Utc;
     use uuid::Uuid;
 
     use crate::{
         fs_store::Store,
-        network::{Device, Network},
+        network::{Device, Network, ValuePermission},
         network_test::{connection::WrappedSendMock, store::StoreMock},
-        schema::{DeviceSchema, Schema},
+        rpc::{RpcData, RpcMethod, RpcRequest, RpcStateData},
+        schema::{DeviceSchema, Meta, MetaType, Schema},
     };
 
     use super::{connection::ConnectionMock, store::DEFAULT_ID};
@@ -99,13 +106,58 @@ mod network {
             Network::new("test").unwrap();
         network.start().unwrap();
         sleep(Duration::from_millis(50));
-        assert!(network.send.unwrap().received(&network.id.to_string()))
+        assert!(network
+            .send
+            .unwrap()
+            .sent_to_server(&network.id.to_string()))
+    }
+
+    #[test]
+    fn should_pass_callbacks_to_reader() {
+        let callback_was_called = Arc::new(Mutex::new(false));
+        let callback_was_called_sent = Arc::clone(&callback_was_called);
+        let callback = move |_: String| {
+            *callback_was_called_sent.lock().unwrap() = true;
+        };
+        let mut network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
+        let device = network.create_device("test_device");
+        let state_id = device
+            .create_value("test_value", ValuePermission::RW(Box::new(callback)))
+            .control
+            .borrow()
+            .as_ref()
+            .unwrap()
+            .id;
+        network
+            .connection()
+            .stream
+            .as_mut()
+            .unwrap()
+            .receive(&control_state_rpc("1", state_id));
+        network.start().unwrap();
+        network.send.as_ref().unwrap();
+        sleep(Duration::from_millis(50));
+        assert!(*callback_was_called.lock().unwrap())
+    }
+    fn control_state_rpc(data: &str, id: Uuid) -> String {
+        serde_json::to_string(
+            &RpcRequest::builder()
+                .method(RpcMethod::Put)
+                .data(RpcData::Data(RpcStateData::new(
+                    data,
+                    Utc::now(),
+                    Meta::new_with_uuid(id, MetaType::State),
+                )))
+                .create(),
+        )
+        .unwrap()
     }
 }
 
 pub mod device {
 
-    use std::cell::RefCell;
+    use std::sync::{Arc, Mutex};
 
     use crate::network::{Device, ValuePermission};
 
@@ -118,28 +170,36 @@ pub mod device {
 
     #[test]
     fn should_register_callback_on_writable_values() {
-        let callback_was_called = RefCell::new(false);
+        let callback_was_called = Arc::new(Mutex::new(false));
+        let callback_was_called_sent = Arc::clone(&callback_was_called);
         let mut device = Device::default();
-        let callback = |_: String| {
-            *callback_was_called.borrow_mut() = true;
+        let callback = move |_: String| {
+            *callback_was_called_sent.lock().unwrap() = true;
         };
         let value = device.create_value("test_value", ValuePermission::RW(Box::new(callback)));
         value.control(String::new());
 
-        assert!(*callback_was_called.borrow())
+        assert!(*callback_was_called.lock().unwrap())
     }
 }
 
 pub mod connection {
     use crate::{
         certs::Certs,
+        communication::{self, CallbackMap},
         connection::{Connect, WappstoServers, WrappedSend},
+        stream_mock::StreamMock,
     };
-    use std::{cell::RefCell, error::Error};
+    use std::{
+        cell::RefCell,
+        error::Error,
+        sync::{mpsc::Sender, Arc},
+    };
 
     pub struct ConnectionMock {
         pub is_started: bool,
         pub was_closed: bool,
+        pub stream: Option<StreamMock>,
     }
 
     impl Connect<WrappedSendMock> for ConnectionMock {
@@ -147,33 +207,40 @@ pub mod connection {
             Self {
                 is_started: false,
                 was_closed: false,
+                stream: Some(StreamMock::new()),
             }
         }
 
-        fn start(&mut self) -> Result<Box<WrappedSendMock>, Box<dyn Error>> {
+        fn start(&mut self, callbacks: CallbackMap) -> Result<WrappedSendMock, Box<dyn Error>> {
             self.is_started = true;
-            Ok(Box::new(WrappedSendMock::new()))
+            Ok(WrappedSendMock::new(communication::start(
+                callbacks,
+                self.stream.take().unwrap(),
+            )))
         }
     }
 
     pub struct WrappedSendMock {
         received: RefCell<String>,
+        send: Arc<Sender<String>>,
     }
 
     impl WrappedSendMock {
-        pub fn new() -> Self {
+        pub fn new(send: Arc<Sender<String>>) -> Self {
             Self {
                 received: RefCell::new(String::new()),
+                send,
             }
         }
 
-        pub fn received(&self, term: &str) -> bool {
+        pub fn sent_to_server(&self, term: &str) -> bool {
             self.received.borrow().contains(term)
         }
     }
     impl WrappedSend for WrappedSendMock {
         fn send(&self, msg: String) -> Result<(), Box<dyn Error>> {
             self.received.borrow_mut().push_str(&msg);
+            self.send.send(msg).unwrap();
             Ok(())
         }
     }
