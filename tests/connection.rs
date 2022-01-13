@@ -24,10 +24,10 @@ fn connects_to_wappsto() {
 
     let certs = Certs::new(&creator.ca, &creator.certificate, &creator.private_key);
 
-    assert!(Connection::new(
+    Connection::new(
         certs.unwrap(),
-        wappsto_iot_rs::connection::WappstoServers::QA
+        wappsto_iot_rs::connection::WappstoServers::QA,
     )
     .start()
-    .is_ok())
+    .unwrap();
 }

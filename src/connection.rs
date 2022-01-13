@@ -1,9 +1,8 @@
-use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
+use openssl::ssl::{SslConnector, SslMethod};
 
 use std::{
     collections::HashMap,
     error::Error,
-    path::Path,
     sync::{mpsc::Sender, Arc},
     thread::sleep,
     time::Duration,
@@ -15,7 +14,6 @@ const DEV: &[&str] = &["dev.", ":52005"];
 const QA: &[&str] = &["qa.", ":53005"];
 const STAGING: &[&str] = &["staging.", ":54005"];
 const PROD: &[&str] = &["", ":443"];
-#[allow(dead_code)]
 const BASE_URL: &str = "wappsto.com";
 
 pub struct Connection {
@@ -46,20 +44,16 @@ impl Connect<SendChannel> for Connection {
     fn start(&mut self) -> Result<Box<SendChannel>, Box<dyn Error>> {
         sleep(Duration::from_millis(1000));
         let mut ctx = SslConnector::builder(SslMethod::tls())?;
-        println!("set ca");
-        ctx.set_ca_file(Path::new("certificates/ca.crt"))?;
-        println!("ca: {:?}", &self.certs.ca);
-        println!("set cert");
-        ctx.set_certificate_file(Path::new("certificates/client.crt"), SslFiletype::PEM)?;
-        println!("set private key");
-        ctx.set_private_key_file(Path::new("certificates/client.key"), SslFiletype::PEM)?;
+        ctx.cert_store_mut().add_cert(self.certs.ca.clone())?;
+        ctx.set_certificate(&self.certs.certificate)?;
+        ctx.set_private_key(&self.certs.private_key)?;
 
-        println!("raw socket");
-        let stream = std::net::TcpStream::connect("qa.wappsto.com:53005")?;
-        println!("tls wrapped socket");
-        let stream = ctx.build().connect("qa.wappsto.com", stream)?;
+        let stream =
+            std::net::TcpStream::connect(&(String::from(self.url[0]) + BASE_URL + self.url[1]))?;
+        let stream = ctx
+            .build()
+            .connect(&(String::from(self.url[0]) + BASE_URL), stream)?;
 
-        println!("set non-blocking");
         stream.get_ref().set_nonblocking(true)?;
 
         Ok(Box::new(SendChannel::new(communication::start(
