@@ -28,7 +28,4 @@ mod network_test;
 mod communication_test;
 
 #[cfg(test)]
-pub mod test_await;
-
-#[cfg(test)]
 mod stream_mock;

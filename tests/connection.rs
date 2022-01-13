@@ -1,5 +1,5 @@
 use dotenv;
-use std::env;
+use std::{collections::HashMap, env};
 use wappsto_iot_rs::connection::Connect;
 use wappsto_iot_rs::create_network::{RequestBuilder, WappstoServers};
 use wappsto_iot_rs::{certs::Certs, connection::Connection};
@@ -28,6 +28,6 @@ fn connects_to_wappsto() {
         certs.unwrap(),
         wappsto_iot_rs::connection::WappstoServers::QA,
     )
-    .start()
+    .start(HashMap::new())
     .is_ok());
 }
