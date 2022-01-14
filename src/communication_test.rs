@@ -7,7 +7,7 @@ mod receiver {
     };
 
     use crate::{
-        communication,
+        communication::{self, CallbackMap},
         rpc::{RpcData, RpcMethod, RpcRequest, RpcStateData},
         schema::{Meta, MetaType},
         stream_mock::StreamMock,
@@ -29,8 +29,11 @@ mod receiver {
         let callback = move |_: String| {
             *callback_arc.lock().unwrap() = true;
         };
-        let mut callbacks: HashMap<Uuid, Box<dyn FnMut(String) + Send + Sync>> = HashMap::new();
-        callbacks.insert(Uuid::parse_str(DEFAULT_ID).unwrap(), Box::new(callback));
+        let mut callbacks: CallbackMap = HashMap::new();
+        callbacks.insert(
+            Uuid::parse_str(DEFAULT_ID).unwrap(),
+            Arc::new(Mutex::new(Box::new(callback))),
+        );
 
         communication::start(callbacks, stream);
         sleep(Duration::from_millis(10));

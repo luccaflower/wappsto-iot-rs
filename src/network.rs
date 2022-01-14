@@ -1,4 +1,8 @@
-use std::{cell::RefCell, collections::HashMap, error::Error};
+use std::{
+    collections::HashMap,
+    error::Error,
+    sync::{Arc, Mutex},
+};
 use uuid::Uuid;
 
 use crate::{
@@ -7,7 +11,7 @@ use crate::{
     connection::{Connect, Connection, SendChannel, WappstoServers, WrappedSend},
     fs_store::{FsStore, Store},
     rpc::{RpcData, RpcMethod, RpcRequest, RpcType},
-    schema::{DeviceSchema, NumberSchema, Permission, Schema, ValueSchema},
+    schema::{DeviceSchema, NumberSchema, Permission, Schema, State, StateType, ValueSchema},
 };
 
 pub struct Network<C = Connection, St = FsStore, Se = SendChannel>
@@ -95,9 +99,8 @@ where
                 device.values.iter().for_each(|(_, value)| {
                     value
                         .control
-                        .borrow_mut()
-                        .take()
-                        .and_then(|c| all_callbacks.insert(c.id, c.callback));
+                        .as_ref()
+                        .and_then(|c| all_callbacks.insert(c.id, c.callback.clone()));
                 });
                 all_callbacks
             })
@@ -210,7 +213,8 @@ impl From<DeviceSchema> for Device {
 pub struct Value {
     name: String,
     id: Uuid,
-    pub control: RefCell<Option<ControlState>>,
+    permission: ValuePermission,
+    pub control: Option<ControlState>,
     report: Option<ReportState>,
 }
 
@@ -220,29 +224,35 @@ impl Value {
     }
 
     pub fn new_with_id(name: &str, permission: ValuePermission, id: Uuid) -> Self {
+        let permission_record = match &permission {
+            ValuePermission::R => ValuePermission::R,
+            ValuePermission::RW(_) => ValuePermission::RW(Box::new(|_| {})),
+            ValuePermission::W(_) => ValuePermission::W(Box::new(|_| {})),
+        };
         let (report, control) = match permission {
             ValuePermission::RW(f) => (
                 Some(ReportState::new(Uuid::new_v4())),
-                RefCell::new(Some(ControlState::new(Uuid::new_v4(), f))),
+                Some(ControlState::new(Uuid::new_v4(), Arc::new(Mutex::new(f)))),
             ),
-            ValuePermission::R => (Some(ReportState::new(Uuid::new_v4())), RefCell::new(None)),
+            ValuePermission::R => (Some(ReportState::new(Uuid::new_v4())), None),
             ValuePermission::W(f) => (
                 None,
-                RefCell::new(Some(ControlState::new(Uuid::new_v4(), f))),
+                Some(ControlState::new(Uuid::new_v4(), Arc::new(Mutex::new(f)))),
             ),
         };
 
         Self {
             name: String::from(name),
             id,
+            permission: permission_record,
             report,
             control,
         }
     }
 
     #[cfg(test)]
-    pub fn control(&mut self, data: String) {
-        (self.control.borrow_mut().as_mut().unwrap().callback)(data)
+    pub fn control(&self, data: String) {
+        (self.control.as_ref().unwrap().callback.lock().unwrap())(data)
     }
 }
 
@@ -259,13 +269,25 @@ impl From<ValueSchema> for Value {
 #[allow(clippy::from_over_into)]
 impl Into<ValueSchema> for &Value {
     fn into(self) -> ValueSchema {
-        let permission = match (self.report.as_ref(), self.control.borrow().as_ref()) {
-            (Some(_), Some(_)) => Permission::RW,
-            (Some(_), None) => Permission::R,
-            (None, Some(_)) => Permission::W,
-            _ => panic!("Invalid permission"),
+        let permission = &self.permission;
+        let permission: Permission = permission.into();
+        let mut values_schema =
+            ValueSchema::new_with_id(&self.name, permission, NumberSchema::default(), self.id);
+        values_schema.state = vec![];
+        if let Some(s) = self.report.as_ref() {
+            println!("report state id: {}", s.id);
+            values_schema
+                .state
+                .push(State::new_with_id(StateType::Report, s.id))
         };
-        ValueSchema::new_with_id(&self.name, permission, NumberSchema::default(), self.id)
+
+        if let Some(s) = self.control.as_ref() {
+            println!("control state id: {}", s.id);
+            values_schema
+                .state
+                .push(State::new_with_id(StateType::Control, s.id))
+        };
+        values_schema
     }
 }
 
@@ -285,19 +307,30 @@ impl From<Permission> for ValuePermission {
     }
 }
 
-#[allow(dead_code)]
-pub struct ControlState {
-    pub id: Uuid,
-    pub callback: Box<dyn FnMut(String) + Send + Sync>,
+#[allow(clippy::from_over_into)]
+impl Into<Permission> for &ValuePermission {
+    fn into(self) -> Permission {
+        match self {
+            ValuePermission::R => Permission::R,
+            ValuePermission::RW(_) => Permission::RW,
+            ValuePermission::W(_) => Permission::W,
+        }
+    }
 }
 
-#[allow(dead_code)]
+#[allow(clippy::type_complexity)]
+pub struct ControlState {
+    pub id: Uuid,
+    pub callback: Arc<Mutex<Box<dyn FnMut(String) + Send + Sync>>>,
+}
+
 struct ReportState {
     pub id: Uuid,
 }
 
 impl ControlState {
-    pub fn new(id: Uuid, callback: Box<dyn FnMut(String) + Send + Sync>) -> Self {
+    #[allow(clippy::type_complexity)]
+    pub fn new(id: Uuid, callback: Arc<Mutex<Box<dyn FnMut(String) + Send + Sync>>>) -> Self {
         Self { id, callback }
     }
 }

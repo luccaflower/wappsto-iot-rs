@@ -1,11 +1,6 @@
 use openssl::ssl::{SslConnector, SslMethod};
 
-use std::{
-    error::Error,
-    sync::{mpsc::Sender, Arc},
-    thread::sleep,
-    time::Duration,
-};
+use std::{error::Error, sync::mpsc::Sender};
 
 use crate::{
     certs::Certs,
@@ -44,7 +39,6 @@ impl Connect<SendChannel> for Connection {
     }
 
     fn start(&mut self, callbacks: CallbackMap) -> Result<SendChannel, Box<dyn Error>> {
-        sleep(Duration::from_millis(1000));
         let mut ctx = SslConnector::builder(SslMethod::tls())?;
         ctx.cert_store_mut().add_cert(self.certs.ca.clone())?;
         ctx.set_certificate(&self.certs.certificate)?;
@@ -63,7 +57,7 @@ impl Connect<SendChannel> for Connection {
 }
 
 pub struct SendChannel {
-    send: Arc<Sender<String>>,
+    send: Sender<String>,
 }
 
 pub trait WrappedSend {
@@ -78,7 +72,7 @@ impl WrappedSend for SendChannel {
 }
 
 impl SendChannel {
-    pub fn new(send: Arc<Sender<String>>) -> Self {
+    pub fn new(send: Sender<String>) -> Self {
         Self { send }
     }
 }

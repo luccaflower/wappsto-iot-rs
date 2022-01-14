@@ -1,3 +1,4 @@
+use serde_json::{Map, Value};
 use std::{
     collections::HashMap,
     io::{ErrorKind, Read, Write},
@@ -12,47 +13,54 @@ use uuid::Uuid;
 
 use crate::rpc::{RpcData, RpcRequest};
 
-pub type CallbackMap = HashMap<Uuid, Box<dyn FnMut(String) + Send + Sync>>;
+pub type CallbackMap = HashMap<Uuid, Arc<Mutex<Box<dyn FnMut(String) + Send + Sync>>>>;
 
-pub fn start<T>(callbacks: CallbackMap, stream: T) -> Arc<Sender<String>>
+pub fn start<T>(callbacks: CallbackMap, stream: T) -> Sender<String>
 where
     T: Read + Write + Send + 'static,
 {
-    let (send, receive): (Sender<String>, Receiver<String>) = mpsc::channel();
     let stream = Arc::new(Mutex::new(stream));
     let write = Arc::clone(&stream);
     let read = Arc::clone(&stream);
-    let send = Arc::new(send);
-    let _send_from_reader = send.clone();
-    println!("spawn threads");
+    let (send, receive): (Sender<String>, Receiver<String>) = mpsc::channel();
+    let send_from_reader = send.clone();
     thread::spawn(move || write_thread(write, receive));
 
-    let callbacks = Arc::new(Mutex::new(callbacks));
-    let callbacks = callbacks.clone();
-
     thread::spawn(move || {
-        read_thread(callbacks, read);
+        read_thread(callbacks, read, send_from_reader);
     });
     send
 }
 
-fn read_thread<T>(callbacks: Arc<Mutex<CallbackMap>>, read: Arc<Mutex<T>>)
+fn read_thread<T>(mut callbacks: CallbackMap, read: Arc<Mutex<T>>, _send: Sender<String>)
 where
     T: Read + Write + Send + 'static,
 {
-    let mut buf = [0; 4096];
     loop {
+        let mut buf = [0; 4096];
         let bytes = read_all_from(&read, &mut buf);
         println!(
-            "buf: {}",
+            "From server: {}",
             &buf[..bytes].iter().map(|c| *c as char).collect::<String>()
         );
-        let data: RpcRequest = serde_json::from_slice(&buf[..bytes]).unwrap();
-        #[allow(clippy::single_match)]
-        match data.params.data {
-            RpcData::Data(d) => callbacks.lock().unwrap().get_mut(&d.meta.id).unwrap()(d.data),
-            _ => (),
-        };
+        let data: Result<Map<String, Value>, _> = serde_json::from_slice(&buf[..bytes]);
+
+        match data {
+            Ok(d) if d.get("method").is_some() => {
+                println!("got request!!");
+                let data: RpcRequest = serde_json::from_slice(&buf[..bytes]).unwrap();
+                #[allow(clippy::single_match)]
+                match data.params.data {
+                    RpcData::Data(d) => {
+                        callbacks.get_mut(&d.meta.id).unwrap().lock().unwrap()(d.data)
+                    }
+                    _ => (),
+                };
+            }
+            Ok(d) if d.get("result").is_some() => println!("got result"),
+            Ok(d) => println!("Unknown message: {:?}", d),
+            Err(e) => panic!("Deserialize error: {}", e),
+        }
     }
 }
 fn read_all_from<T: Read>(reader: &Arc<Mutex<T>>, mut buf: &mut [u8]) -> usize {
@@ -72,7 +80,7 @@ where
 {
     loop {
         let msg = receive.recv().unwrap();
-        println!("received message: {}", &msg);
+        println!("write thread: {}", msg);
         write_all_to(&write, msg.as_bytes());
     }
 }

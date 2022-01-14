@@ -89,11 +89,15 @@ pub struct State {
 
 impl State {
     pub fn new(state_type: StateType) -> Self {
-        State {
+        Self::new_with_id(state_type, Uuid::new_v4())
+    }
+
+    pub fn new_with_id(state_type: StateType, id: Uuid) -> Self {
+        Self {
             data: String::new(),
             state_type,
             timestamp: Utc::now().format("%Y-%m-%dT%H:%M:%S.%fZ").to_string(),
-            meta: Meta::new(MetaType::State),
+            meta: Meta::new_with_uuid(id, MetaType::State),
         }
     }
 }

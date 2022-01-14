@@ -125,7 +125,6 @@ mod network {
         let state_id = device
             .create_value("test_value", ValuePermission::RW(Box::new(callback)))
             .control
-            .borrow()
             .as_ref()
             .unwrap()
             .id;
@@ -190,11 +189,7 @@ pub mod connection {
         connection::{Connect, WappstoServers, WrappedSend},
         stream_mock::StreamMock,
     };
-    use std::{
-        cell::RefCell,
-        error::Error,
-        sync::{mpsc::Sender, Arc},
-    };
+    use std::{cell::RefCell, error::Error, sync::mpsc::Sender};
 
     pub struct ConnectionMock {
         pub is_started: bool,
@@ -222,11 +217,11 @@ pub mod connection {
 
     pub struct WrappedSendMock {
         received: RefCell<String>,
-        send: Arc<Sender<String>>,
+        send: Sender<String>,
     }
 
     impl WrappedSendMock {
-        pub fn new(send: Arc<Sender<String>>) -> Self {
+        pub fn new(send: Sender<String>) -> Self {
             Self {
                 received: RefCell::new(String::new()),
                 send,

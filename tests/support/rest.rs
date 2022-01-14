@@ -52,11 +52,13 @@ pub mod rest {
         }
 
         pub fn control(&self, id: Uuid, data: &str) -> Result<(), Box<dyn Error>> {
-            self.client
-                .post(self.url.clone() + VERSION_2 + "state/" + &id.to_string())
+            let response = self
+                .client
+                .patch(self.url.clone() + VERSION_2 + "state/" + &id.to_string())
                 .json(&json!({ "data": data }))
                 .send()
                 .unwrap();
+            println!("response to control request: {}", response.text().unwrap());
             Ok(())
         }
     }
@@ -101,6 +103,7 @@ pub mod rest {
             .to_server(wappsto_iot_rs::create_network::WappstoServers::QA)
             .send()?;
         let certs = Certs::new(&creator.ca, &creator.certificate, &creator.private_key).unwrap();
+        println!("{}", &certs.id);
         FsStore::default().save_certs(certs).unwrap();
         Ok(())
     }

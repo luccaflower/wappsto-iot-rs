@@ -64,6 +64,7 @@ impl RpcRequestBuilder {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
 pub enum RpcMethod {
     Post,
     Put,
@@ -119,3 +120,6 @@ impl RpcStateData {
         }
     }
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct RpcResponse {}
