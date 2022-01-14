@@ -275,14 +275,12 @@ impl Into<ValueSchema> for &Value {
             ValueSchema::new_with_id(&self.name, permission, NumberSchema::default(), self.id);
         values_schema.state = vec![];
         if let Some(s) = self.report.as_ref() {
-            println!("report state id: {}", s.id);
             values_schema
                 .state
                 .push(State::new_with_id(StateType::Report, s.id))
         };
 
         if let Some(s) = self.control.as_ref() {
-            println!("control state id: {}", s.id);
             values_schema
                 .state
                 .push(State::new_with_id(StateType::Control, s.id))

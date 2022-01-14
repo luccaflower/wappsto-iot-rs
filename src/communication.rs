@@ -11,7 +11,7 @@ use std::{
 };
 use uuid::Uuid;
 
-use crate::rpc::{RpcData, RpcRequest};
+use crate::rpc::{RpcData, RpcRequest, RpcResponse};
 
 pub type CallbackMap = HashMap<Uuid, Arc<Mutex<Box<dyn FnMut(String) + Send + Sync>>>>;
 
@@ -32,23 +32,20 @@ where
     send
 }
 
-fn read_thread<T>(mut callbacks: CallbackMap, read: Arc<Mutex<T>>, _send: Sender<String>)
+fn read_thread<T>(mut callbacks: CallbackMap, read: Arc<Mutex<T>>, send: Sender<String>)
 where
     T: Read + Write + Send + 'static,
 {
     loop {
         let mut buf = [0; 4096];
         let bytes = read_all_from(&read, &mut buf);
-        println!(
-            "From server: {}",
-            &buf[..bytes].iter().map(|c| *c as char).collect::<String>()
-        );
         let data: Result<Map<String, Value>, _> = serde_json::from_slice(&buf[..bytes]);
 
         match data {
             Ok(d) if d.get("method").is_some() => {
-                println!("got request!!");
                 let data: RpcRequest = serde_json::from_slice(&buf[..bytes]).unwrap();
+                send.send(serde_json::to_string(&RpcResponse::new(data.id.clone(), true)).unwrap())
+                    .unwrap();
                 #[allow(clippy::single_match)]
                 match data.params.data {
                     RpcData::Data(d) => {
@@ -57,7 +54,7 @@ where
                     _ => (),
                 };
             }
-            Ok(d) if d.get("result").is_some() => println!("got result"),
+            Ok(d) if d.get("result").is_some() => (),
             Ok(d) => println!("Unknown message: {:?}", d),
             Err(e) => panic!("Deserialize error: {}", e),
         }
@@ -80,7 +77,6 @@ where
 {
     loop {
         let msg = receive.recv().unwrap();
-        println!("write thread: {}", msg);
         write_all_to(&write, msg.as_bytes());
     }
 }

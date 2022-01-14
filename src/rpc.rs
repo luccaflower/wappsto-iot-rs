@@ -8,7 +8,7 @@ use crate::schema::{Meta, Schema};
 pub struct RpcRequest {
     jsonrpc: String,
     method: RpcMethod,
-    id: String,
+    pub id: String,
     pub params: RpcParams,
 }
 
@@ -122,4 +122,29 @@ impl RpcStateData {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct RpcResponse {}
+pub struct RpcResponse {
+    jsonrpc: &'static str,
+    id: String,
+    result: RpcResponseResult,
+}
+
+impl RpcResponse {
+    pub fn new(id: String, success: bool) -> Self {
+        Self {
+            jsonrpc: "2.0",
+            id,
+            result: RpcResponseResult::new(success),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct RpcResponseResult {
+    success: bool,
+}
+
+impl RpcResponseResult {
+    pub fn new(success: bool) -> Self {
+        Self { success }
+    }
+}
