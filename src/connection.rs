@@ -1,6 +1,6 @@
 use openssl::ssl::{SslConnector, SslMethod};
 
-use std::{error::Error, sync::mpsc::Sender};
+use std::{error::Error, net::TcpStream, sync::mpsc::Sender};
 
 use crate::{
     certs::Certs,
@@ -44,8 +44,7 @@ impl Connect<SendChannel> for Connection {
         ctx.set_certificate(&self.certs.certificate)?;
         ctx.set_private_key(&self.certs.private_key)?;
 
-        let stream =
-            std::net::TcpStream::connect(&(String::from(self.url[0]) + BASE_URL + self.url[1]))?;
+        let stream = TcpStream::connect(&(String::from(self.url[0]) + BASE_URL + self.url[1]))?;
         let stream = ctx
             .build()
             .connect(&(String::from(self.url[0]) + BASE_URL), stream)?;
