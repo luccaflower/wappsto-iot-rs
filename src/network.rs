@@ -290,9 +290,9 @@ impl Into<ValueSchema> for &Value {
 }
 
 pub enum ValuePermission {
-    RW(Box<dyn FnMut(String) + Send + Sync>),
+    RW(Box<dyn Fn(String) + Send + Sync>),
     R,
-    W(Box<dyn FnMut(String) + Send + Sync>),
+    W(Box<dyn Fn(String) + Send + Sync>),
 }
 
 impl From<Permission> for ValuePermission {
@@ -319,7 +319,7 @@ impl Into<Permission> for &ValuePermission {
 #[allow(clippy::type_complexity)]
 pub struct ControlState {
     pub id: Uuid,
-    pub callback: Arc<Mutex<Box<dyn FnMut(String) + Send + Sync>>>,
+    pub callback: Arc<Mutex<Box<dyn Fn(String) + Send + Sync>>>,
 }
 
 struct ReportState {
@@ -328,7 +328,7 @@ struct ReportState {
 
 impl ControlState {
     #[allow(clippy::type_complexity)]
-    pub fn new(id: Uuid, callback: Arc<Mutex<Box<dyn FnMut(String) + Send + Sync>>>) -> Self {
+    pub fn new(id: Uuid, callback: Arc<Mutex<Box<dyn Fn(String) + Send + Sync>>>) -> Self {
         Self { id, callback }
     }
 }

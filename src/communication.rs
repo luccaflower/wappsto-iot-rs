@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::rpc::{RpcData, RpcRequest, RpcResponse};
 
-pub type CallbackMap = HashMap<Uuid, Arc<Mutex<Box<dyn FnMut(String) + Send + Sync>>>>;
+pub type CallbackMap = HashMap<Uuid, Arc<Mutex<Box<dyn Fn(String) + Send + Sync>>>>;
 
 pub fn start<T>(callbacks: CallbackMap, stream: T) -> Sender<String>
 where
