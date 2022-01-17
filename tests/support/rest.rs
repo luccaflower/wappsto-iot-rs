@@ -61,6 +61,15 @@ pub mod rest {
             println!("response to control request: {}", response.text().unwrap());
             Ok(())
         }
+
+        pub fn report(&self, id: Uuid) -> Result<String, Box<dyn Error>> {
+            let response: StateResponse = self
+                .client
+                .get(self.url.clone() + VERSION_2 + "state/" + &id.to_string())
+                .send()?
+                .json()?;
+            Ok(response.data)
+        }
     }
 
     pub enum RestServer {
@@ -93,6 +102,11 @@ pub mod rest {
                 password: String::from(password),
             }
         }
+    }
+
+    #[derive(Deserialize)]
+    pub struct StateResponse {
+        pub data: String,
     }
 
     pub fn create_network() -> Result<(), Box<dyn Error>> {
