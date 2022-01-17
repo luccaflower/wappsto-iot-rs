@@ -31,7 +31,7 @@ mod network {
         let mut network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
             Network::new("test").unwrap();
         network.start().expect("Failed to start");
-        assert!(network.connection().is_started);
+        assert!(*network.connection().is_started.borrow());
     }
 
     #[test]
@@ -131,6 +131,7 @@ mod network {
         network
             .connection()
             .stream
+            .borrow_mut()
             .as_mut()
             .unwrap()
             .receive(&control_state_rpc("1", state_id));
@@ -192,25 +193,25 @@ pub mod connection {
     use std::{cell::RefCell, error::Error, sync::mpsc::Sender};
 
     pub struct ConnectionMock {
-        pub is_started: bool,
+        pub is_started: RefCell<bool>,
         pub was_closed: bool,
-        pub stream: Option<StreamMock>,
+        pub stream: RefCell<Option<StreamMock>>,
     }
 
     impl Connect<WrappedSendMock> for ConnectionMock {
         fn new(_certs: Certs, _server: WappstoServers) -> Self {
             Self {
-                is_started: false,
+                is_started: RefCell::new(false),
                 was_closed: false,
-                stream: Some(StreamMock::new()),
+                stream: RefCell::new(Some(StreamMock::new())),
             }
         }
 
-        fn start(&mut self, callbacks: CallbackMap) -> Result<WrappedSendMock, Box<dyn Error>> {
-            self.is_started = true;
+        fn start(&self, callbacks: CallbackMap) -> Result<WrappedSendMock, Box<dyn Error>> {
+            *self.is_started.borrow_mut() = true;
             Ok(WrappedSendMock::new(communication::start(
                 callbacks,
-                self.stream.take().unwrap(),
+                self.stream.borrow_mut().take().unwrap(),
             )))
         }
     }

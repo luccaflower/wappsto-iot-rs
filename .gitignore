@@ -15,3 +15,6 @@ certificates/*
 
 # Environment variables file
 .env
+
+#vscode
+.vscode/settings.json

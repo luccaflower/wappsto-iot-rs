@@ -215,7 +215,7 @@ pub struct Value {
     id: Uuid,
     permission: ValuePermission,
     pub control: Option<ControlState>,
-    report: Option<ReportState>,
+    pub report: Option<ReportState>,
 }
 
 impl Value {
@@ -248,6 +248,10 @@ impl Value {
             report,
             control,
         }
+    }
+
+    pub fn report(&self, _data: &str) {
+        todo!("report state")
     }
 
     #[cfg(test)]
@@ -322,7 +326,7 @@ pub struct ControlState {
     pub callback: Arc<Mutex<Box<dyn Fn(String) + Send + Sync>>>,
 }
 
-struct ReportState {
+pub struct ReportState {
     pub id: Uuid,
 }
 

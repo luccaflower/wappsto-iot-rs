@@ -24,7 +24,7 @@ where
     Se: WrappedSend,
 {
     fn new(certs: Certs, server: WappstoServers) -> Self;
-    fn start(&mut self, callbacks: CallbackMap) -> Result<Se, Box<dyn Error>>;
+    fn start(&self, callbacks: CallbackMap) -> Result<Se, Box<dyn Error>>;
 }
 
 impl Connect<SendChannel> for Connection {
@@ -38,7 +38,7 @@ impl Connect<SendChannel> for Connection {
         Self { certs, url }
     }
 
-    fn start(&mut self, callbacks: CallbackMap) -> Result<SendChannel, Box<dyn Error>> {
+    fn start(&self, callbacks: CallbackMap) -> Result<SendChannel, Box<dyn Error>> {
         let mut ctx = SslConnector::builder(SslMethod::tls())?;
         ctx.cert_store_mut().add_cert(self.certs.ca.clone())?;
         ctx.set_certificate(&self.certs.certificate)?;
