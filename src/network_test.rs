@@ -165,11 +165,11 @@ pub mod device {
 
     use std::sync::{Arc, Mutex};
 
-    use crate::network::{Device, ValuePermission};
+    use crate::network::{InnerDevice, ValuePermission};
 
     #[test]
     fn should_create_new_value() {
-        let mut device = Device::default();
+        let mut device = InnerDevice::default();
         device.create_value("test", ValuePermission::R);
         assert!(device.value_named("test").is_some())
     }
@@ -178,7 +178,7 @@ pub mod device {
     fn should_register_callback_on_writable_values() {
         let callback_was_called = Arc::new(Mutex::new(false));
         let callback_was_called_sent = Arc::clone(&callback_was_called);
-        let mut device = Device::default();
+        let mut device = InnerDevice::default();
         let callback = move |_: String| {
             *callback_was_called_sent.lock().unwrap() = true;
         };
