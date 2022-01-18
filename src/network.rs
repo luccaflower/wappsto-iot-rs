@@ -22,14 +22,24 @@ where
     St: Store + Default,
     Se: WrappedSend,
 {
-    inner: Rc<RefCell<Network<C, St, Se>>>,
+    pub inner: Rc<RefCell<Network<C, St, Se>>>,
 }
 
-impl OuterNetwork {
-    pub fn new(network: Network) -> Self {
-        Self {
-            inner: Rc::new(RefCell::new(network)),
-        }
+impl<C, St, Se> OuterNetwork<C, St, Se>
+where
+    C: Connect<Se>,
+    St: Store + Default,
+    Se: WrappedSend,
+{
+    pub fn new(name: &str) -> Result<Self, Box<dyn Error>> {
+        Self::new_at(WappstoServers::default(), name)
+    }
+
+    pub fn new_at(server: WappstoServers, name: &str) -> Result<Self, Box<dyn Error>> {
+        let inner = Network::new_at(server, name)?;
+        Ok(Self {
+            inner: Rc::new(RefCell::new(inner)),
+        })
     }
 
     pub fn create_device(&self, name: &str) -> OuterDevice {
@@ -43,6 +53,38 @@ impl OuterNetwork {
     pub fn stop(&self) -> Result<(), Box<dyn Error>> {
         self.inner.borrow_mut().stop()
     }
+
+    #[cfg(test)]
+    pub fn new_with_store(name: &str, store: St) -> Self {
+        Self {
+            inner: Rc::new(RefCell::new(Network::new_with_store(name, store))),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn connection(&self) -> Rc<C> {
+        self.inner.borrow().connection()
+    }
+
+    #[cfg(test)]
+    pub fn store(&self) -> Rc<St> {
+        self.inner.borrow().store()
+    }
+
+    #[cfg(test)]
+    pub fn device_named(&self, name: &str) -> Option<OuterDevice> {
+        self.inner.borrow().devices.get(name).cloned()
+    }
+
+    #[cfg(test)]
+    pub fn devices_is_empty(&self) -> bool {
+        self.inner.borrow().devices.is_empty()
+    }
+
+    #[cfg(test)]
+    pub fn id(&self) -> Uuid {
+        self.inner.borrow().id.clone()
+    }
 }
 
 pub struct Network<C = Connection, St = FsStore, Se = SendChannel>
@@ -53,8 +95,8 @@ where
 {
     pub name: String,
     pub id: Uuid,
-    connection: C,
-    store: St,
+    connection: Rc<C>,
+    store: Rc<St>,
     devices: HashMap<String, OuterDevice>,
     pub send: Option<Se>,
 }
@@ -70,13 +112,13 @@ where
     }
 
     pub fn new_at(server: WappstoServers, name: &str) -> Result<Self, Box<dyn Error>> {
-        let store = St::default();
+        let store = Rc::new(St::default());
         let certs = store.load_certs()?;
         let devices = Self::parse_schema(&store, &certs);
         Ok(Self {
             name: String::from(name),
             id: certs.id,
-            connection: C::new(certs, server),
+            connection: Rc::new(C::new(certs, server)),
             store,
             devices,
             send: None,
@@ -139,18 +181,13 @@ where
     }
 
     #[cfg(test)]
-    pub fn connection(&mut self) -> &mut C {
-        &mut self.connection
+    pub fn connection(&self) -> Rc<C> {
+        Rc::clone(&self.connection)
     }
 
     #[cfg(test)]
-    pub fn store(&self) -> &St {
-        &self.store
-    }
-
-    #[cfg(test)]
-    pub fn devices(&mut self) -> &mut HashMap<String, OuterDevice> {
-        &mut self.devices
+    pub fn store(&self) -> Rc<St> {
+        Rc::clone(&self.store)
     }
 
     #[cfg(test)]
@@ -161,9 +198,9 @@ where
         Self {
             name: String::from(name),
             id,
-            store,
+            store: Rc::new(store),
             devices,
-            connection: C::new(certs, WappstoServers::default()),
+            connection: Rc::new(C::new(certs, WappstoServers::default())),
             send: None,
         }
     }
@@ -481,7 +518,7 @@ impl Into<Permission> for &ValuePermission {
 }
 
 pub struct OuterControlState {
-    inner: Rc<ControlState>,
+    pub inner: Rc<ControlState>,
 }
 
 impl Clone for OuterControlState {
@@ -508,7 +545,7 @@ pub struct ControlState {
 
 #[allow(dead_code)]
 pub struct OuterReportState {
-    inner: Rc<ReportState>,
+    pub inner: Rc<ReportState>,
 }
 
 impl OuterReportState {

@@ -16,7 +16,7 @@ pub struct FsStore {
 }
 pub trait Store {
     fn load_certs(&self) -> Result<Certs, Box<dyn Error>>;
-    fn save_schema(&mut self, schema: Schema) -> Result<(), Box<dyn Error>>;
+    fn save_schema(&self, schema: Schema) -> Result<(), Box<dyn Error>>;
     fn load_schema(&self, id: Uuid) -> Option<Schema>;
 }
 
@@ -61,7 +61,7 @@ impl Store for FsStore {
     }
 
     ///Save network schema to data store
-    fn save_schema(&mut self, schema: Schema) -> Result<(), Box<dyn Error>> {
+    fn save_schema(&self, schema: Schema) -> Result<(), Box<dyn Error>> {
         DirBuilder::new()
             .recursive(true)
             .create(&self.network_schema)
