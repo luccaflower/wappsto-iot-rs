@@ -26,7 +26,7 @@ where
     pub id: Uuid,
     connection: C,
     store: St,
-    devices: HashMap<String, Device>,
+    devices: HashMap<String, OuterDevice>,
     pub send: Option<Se>,
 }
 
@@ -54,8 +54,9 @@ where
         })
     }
 
-    pub fn create_device(&mut self, name: &str) -> &mut Device {
-        self.devices.entry(String::from(name)).or_default()
+    pub fn create_device(&mut self, name: &str) -> OuterDevice {
+        let device = self.devices.entry(String::from(name)).or_default();
+        OuterDevice::clone(device)
     }
 
     pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
@@ -82,13 +83,13 @@ where
         Ok(())
     }
 
-    fn parse_schema(store: &St, certs: &Certs) -> HashMap<String, Device> {
+    fn parse_schema(store: &St, certs: &Certs) -> HashMap<String, OuterDevice> {
         if let Some(schema) = store.load_schema(certs.id) {
             schema
                 .device
                 .into_iter()
-                .map(|d| (d.name.clone(), Device::from(d)))
-                .collect::<HashMap<String, Device>>()
+                .map(|d| (d.name.clone(), OuterDevice::from(d)))
+                .collect::<HashMap<String, OuterDevice>>()
         } else {
             HashMap::new()
         }
@@ -98,7 +99,7 @@ where
         self.devices
             .iter()
             .fold(HashMap::new(), |mut all_callbacks, (_, device)| {
-                device.values.iter().for_each(|(_, value)| {
+                device.inner.borrow().values.iter().for_each(|(_, value)| {
                     value
                         .control_state()
                         .as_ref()
@@ -119,7 +120,7 @@ where
     }
 
     #[cfg(test)]
-    pub fn devices(&mut self) -> &mut HashMap<String, Device> {
+    pub fn devices(&mut self) -> &mut HashMap<String, OuterDevice> {
         &mut self.devices
     }
 
@@ -151,15 +152,14 @@ where
         schema.device = self
             .devices
             .iter()
-            .map(|(_, device)| device.into())
+            .map(|(_, device)| OuterDevice::clone(device).into())
             .collect();
         schema
     }
 }
 
-#[allow(dead_code)]
 pub struct OuterDevice {
-    inner: Rc<RefCell<Device>>,
+    pub inner: Rc<RefCell<Device>>,
 }
 
 impl OuterDevice {
@@ -179,6 +179,14 @@ impl OuterDevice {
     }
 }
 
+impl Clone for OuterDevice {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Rc::clone(&self.inner),
+        }
+    }
+}
+
 impl From<Ref<'_, Device>> for DeviceSchema {
     fn from(device: Ref<Device>) -> Self {
         let mut device_schema = DeviceSchema::new(&device.name, device.id);
@@ -188,6 +196,18 @@ impl From<Ref<'_, Device>> for DeviceSchema {
             .map(|(_, value)| ValueSchema::from(value))
             .collect();
         device_schema
+    }
+}
+
+impl From<OuterDevice> for DeviceSchema {
+    fn from(device: OuterDevice) -> Self {
+        Self::from(device.inner.borrow())
+    }
+}
+
+impl From<DeviceSchema> for OuterDevice {
+    fn from(schema: DeviceSchema) -> Self {
+        Self::new(Device::from(schema))
     }
 }
 

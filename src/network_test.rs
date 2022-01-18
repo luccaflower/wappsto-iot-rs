@@ -11,7 +11,7 @@ mod network {
 
     use crate::{
         fs_store::Store,
-        network::{Device, Network, ValuePermission},
+        network::{Network, OuterDevice, ValuePermission},
         network_test::{connection::WrappedSendMock, store::StoreMock},
         rpc::{RpcData, RpcMethod, RpcRequest, RpcStateData},
         schema::{DeviceSchema, Meta, MetaType, Schema},
@@ -86,10 +86,13 @@ mod network {
         let mut network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
             Network::new("test").unwrap();
         let devices = network.devices();
-        let device = Device::default();
-        let expected_id = device.id.clone();
+        let device = OuterDevice::default();
+        let expected_id = device.inner.borrow().id.clone();
         devices.insert(String::from("test_device"), device);
-        assert_eq!(expected_id, network.create_device("test_device").id)
+        assert_eq!(
+            expected_id,
+            network.create_device("test_device").inner.borrow().id
+        )
     }
 
     #[test]
