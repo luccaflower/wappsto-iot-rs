@@ -16,6 +16,35 @@ use crate::{
     schema::{DeviceSchema, NumberSchema, Permission, Schema, State, StateType, ValueSchema},
 };
 
+pub struct OuterNetwork<C = Connection, St = FsStore, Se = SendChannel>
+where
+    C: Connect<Se>,
+    St: Store + Default,
+    Se: WrappedSend,
+{
+    inner: Rc<RefCell<Network<C, St, Se>>>,
+}
+
+impl OuterNetwork {
+    pub fn new(network: Network) -> Self {
+        Self {
+            inner: Rc::new(RefCell::new(network)),
+        }
+    }
+
+    pub fn create_device(&self, name: &str) -> OuterDevice {
+        self.inner.borrow_mut().create_device(name)
+    }
+
+    pub fn start(&self) -> Result<(), Box<dyn Error>> {
+        self.inner.borrow_mut().start()
+    }
+
+    pub fn stop(&self) -> Result<(), Box<dyn Error>> {
+        self.inner.borrow_mut().stop()
+    }
+}
+
 pub struct Network<C = Connection, St = FsStore, Se = SendChannel>
 where
     C: Connect<Se>,
