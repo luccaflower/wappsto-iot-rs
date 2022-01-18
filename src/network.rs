@@ -1,6 +1,8 @@
 use std::{
+    cell::RefCell,
     collections::HashMap,
     error::Error,
+    rc::Rc,
     sync::{Arc, Mutex},
 };
 use uuid::Uuid;
@@ -98,9 +100,9 @@ where
             .fold(HashMap::new(), |mut all_callbacks, (_, device)| {
                 device.values.iter().for_each(|(_, value)| {
                     value
-                        .control
+                        .control_state()
                         .as_ref()
-                        .and_then(|c| all_callbacks.insert(c.id, c.callback.clone()));
+                        .and_then(|c| all_callbacks.insert(c.inner.id, c.inner.callback.clone()));
                 });
                 all_callbacks
             })
@@ -155,10 +157,15 @@ where
     }
 }
 
+#[allow(dead_code)]
+pub struct OuterDevice {
+    inner: Rc<RefCell<Device>>,
+}
+
 pub struct Device {
     pub name: String,
     pub id: Uuid,
-    values: HashMap<String, Value>,
+    values: HashMap<String, OuterValue>,
 }
 
 impl Device {
@@ -171,15 +178,17 @@ impl Device {
     }
 
     #[allow(clippy::mut_from_ref)]
-    pub fn create_value(&mut self, name: &str, permission: ValuePermission) -> &mut Value {
+    pub fn create_value(&mut self, name: &str, permission: ValuePermission) -> OuterValue {
+        let value = OuterValue::new(Value::new(name, permission));
         self.values
             .entry(String::from(name))
-            .or_insert_with(|| Value::new(name, permission))
+            .or_insert_with(|| OuterValue::clone(&value));
+        value
     }
 
     #[cfg(test)]
-    pub fn values(&self) -> &HashMap<String, Value> {
-        &self.values
+    pub fn value_named(&self, key: &str) -> Option<&OuterValue> {
+        self.values.get(key)
     }
 }
 
@@ -189,24 +198,79 @@ impl Default for Device {
     }
 }
 
-#[allow(clippy::from_over_into)]
-impl Into<DeviceSchema> for &Device {
-    fn into(self) -> DeviceSchema {
-        let mut schema = DeviceSchema::new(&self.name, self.id);
-        schema.value = self.values.iter().map(|(_, value)| value.into()).collect();
-        schema
-    }
-}
-
 impl From<DeviceSchema> for Device {
     fn from(schema: DeviceSchema) -> Self {
         let mut device = Device::new(&schema.name, schema.meta.id);
         device.values = schema
             .value
             .into_iter()
-            .map(|v| (v.name.clone(), Value::from(v)))
-            .collect::<HashMap<String, Value>>();
+            .map(|v| (v.name.clone(), OuterValue::new(Value::from(v))))
+            .collect::<HashMap<String, OuterValue>>();
         device
+    }
+}
+
+impl From<&Device> for DeviceSchema {
+    fn from(device: &Device) -> Self {
+        let mut device_schema = DeviceSchema::new(&device.name, device.id);
+        device_schema.value = device
+            .values
+            .iter()
+            .map(|(_, value)| ValueSchema::from(value))
+            .collect();
+        device_schema
+    }
+}
+
+pub struct OuterValue {
+    pub inner: Rc<Value>,
+}
+
+impl Clone for OuterValue {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Rc::clone(&self.inner),
+        }
+    }
+}
+
+impl OuterValue {
+    pub fn new(value: Value) -> Self {
+        Self {
+            inner: Rc::new(value),
+        }
+    }
+
+    pub fn report(&self, data: &str) {
+        self.inner.report(data)
+    }
+
+    pub fn control_state(&self) -> Option<OuterControlState> {
+        self.inner.control.clone()
+    }
+
+    #[cfg(test)]
+    pub fn control(&self, data: String) {
+        self.inner.control(data)
+    }
+
+    #[cfg(test)]
+    pub fn control_id(&self) -> Uuid {
+        self.inner.control.as_ref().unwrap().inner.id.clone()
+    }
+}
+
+impl From<ValueSchema> for OuterValue {
+    fn from(schema: ValueSchema) -> Self {
+        Self {
+            inner: Rc::new(Value::from(schema)),
+        }
+    }
+}
+
+impl From<&OuterValue> for ValueSchema {
+    fn from(value: &OuterValue) -> Self {
+        Self::from(value.inner.clone().as_ref())
     }
 }
 
@@ -214,7 +278,7 @@ pub struct Value {
     name: String,
     id: Uuid,
     permission: ValuePermission,
-    pub control: Option<ControlState>,
+    pub control: Option<OuterControlState>,
     pub report: Option<ReportState>,
 }
 
@@ -232,12 +296,18 @@ impl Value {
         let (report, control) = match permission {
             ValuePermission::RW(f) => (
                 Some(ReportState::new(Uuid::new_v4())),
-                Some(ControlState::new(Uuid::new_v4(), Arc::new(Mutex::new(f)))),
+                Some(OuterControlState::new(ControlState::new(
+                    Uuid::new_v4(),
+                    Arc::new(Mutex::new(f)),
+                ))),
             ),
             ValuePermission::R => (Some(ReportState::new(Uuid::new_v4())), None),
             ValuePermission::W(f) => (
                 None,
-                Some(ControlState::new(Uuid::new_v4(), Arc::new(Mutex::new(f)))),
+                Some(OuterControlState::new(ControlState::new(
+                    Uuid::new_v4(),
+                    Arc::new(Mutex::new(f)),
+                ))),
             ),
         };
 
@@ -256,7 +326,14 @@ impl Value {
 
     #[cfg(test)]
     pub fn control(&self, data: String) {
-        (self.control.as_ref().unwrap().callback.lock().unwrap())(data)
+        (self
+            .control
+            .as_ref()
+            .unwrap()
+            .inner
+            .callback
+            .lock()
+            .unwrap())(data)
     }
 }
 
@@ -270,24 +347,23 @@ impl From<ValueSchema> for Value {
     }
 }
 
-#[allow(clippy::from_over_into)]
-impl Into<ValueSchema> for &Value {
-    fn into(self) -> ValueSchema {
-        let permission = &self.permission;
+impl From<&Value> for ValueSchema {
+    fn from(value: &Value) -> Self {
+        let permission = &value.permission;
         let permission: Permission = permission.into();
         let mut values_schema =
-            ValueSchema::new_with_id(&self.name, permission, NumberSchema::default(), self.id);
+            Self::new_with_id(&value.name, permission, NumberSchema::default(), value.id);
         values_schema.state = vec![];
-        if let Some(s) = self.report.as_ref() {
+        if let Some(s) = value.report.as_ref() {
             values_schema
                 .state
                 .push(State::new_with_id(StateType::Report, s.id))
         };
 
-        if let Some(s) = self.control.as_ref() {
+        if let Some(s) = value.control.as_ref() {
             values_schema
                 .state
-                .push(State::new_with_id(StateType::Control, s.id))
+                .push(State::new_with_id(StateType::Control, s.inner.id))
         };
         values_schema
     }
@@ -320,10 +396,43 @@ impl Into<Permission> for &ValuePermission {
     }
 }
 
+pub struct OuterControlState {
+    inner: Rc<ControlState>,
+}
+
+impl Clone for OuterControlState {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+impl OuterControlState {
+    pub fn new(control_state: ControlState) -> Self {
+        Self {
+            inner: Rc::new(control_state),
+        }
+    }
+}
+
 #[allow(clippy::type_complexity)]
 pub struct ControlState {
     pub id: Uuid,
     pub callback: Arc<Mutex<Box<dyn Fn(String) + Send + Sync>>>,
+}
+
+#[allow(dead_code)]
+pub struct OuterReportState {
+    inner: Rc<ReportState>,
+}
+
+impl OuterReportState {
+    pub fn new(report_state: ReportState) -> Self {
+        Self {
+            inner: Rc::new(report_state),
+        }
+    }
 }
 
 pub struct ReportState {

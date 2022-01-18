@@ -124,10 +124,8 @@ mod network {
         let device = network.create_device("test_device");
         let state_id = device
             .create_value("test_value", ValuePermission::RW(Box::new(callback)))
-            .control
-            .as_ref()
-            .unwrap()
-            .id;
+            .control_id();
+
         network
             .connection()
             .stream
@@ -165,7 +163,7 @@ pub mod device {
     fn should_create_new_value() {
         let mut device = Device::default();
         device.create_value("test", ValuePermission::R);
-        assert!(device.values().get("test").is_some())
+        assert!(device.value_named("test").is_some())
     }
 
     #[test]
