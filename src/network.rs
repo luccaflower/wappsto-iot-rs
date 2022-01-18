@@ -1,5 +1,5 @@
 use std::{
-    cell::RefCell,
+    cell::{Ref, RefCell},
     collections::HashMap,
     error::Error,
     rc::Rc,
@@ -160,6 +160,32 @@ where
 #[allow(dead_code)]
 pub struct OuterDevice {
     inner: Rc<RefCell<Device>>,
+}
+
+impl OuterDevice {
+    pub fn new(device: Device) -> Self {
+        Self {
+            inner: Rc::new(RefCell::new(device)),
+        }
+    }
+}
+
+impl From<Ref<'_, Device>> for DeviceSchema {
+    fn from(device: Ref<Device>) -> Self {
+        let mut device_schema = DeviceSchema::new(&device.name, device.id);
+        device_schema.value = device
+            .values
+            .iter()
+            .map(|(_, value)| ValueSchema::from(value))
+            .collect();
+        device_schema
+    }
+}
+
+impl Default for OuterDevice {
+    fn default() -> Self {
+        Self::new(Device::default())
+    }
 }
 
 pub struct Device {
