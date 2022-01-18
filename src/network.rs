@@ -16,16 +16,16 @@ use crate::{
     schema::{DeviceSchema, NumberSchema, Permission, Schema, State, StateType, ValueSchema},
 };
 
-pub struct OuterNetwork<C = Connection, St = FsStore, Se = SendChannel>
+pub struct Network<C = Connection, St = FsStore, Se = SendChannel>
 where
     C: Connect<Se>,
     St: Store + Default,
     Se: WrappedSend,
 {
-    pub inner: Rc<RefCell<Network<C, St, Se>>>,
+    pub inner: Rc<RefCell<InnerNetwork<C, St, Se>>>,
 }
 
-impl<C, St, Se> OuterNetwork<C, St, Se>
+impl<C, St, Se> Network<C, St, Se>
 where
     C: Connect<Se>,
     St: Store + Default,
@@ -36,7 +36,7 @@ where
     }
 
     pub fn new_at(server: WappstoServers, name: &str) -> Result<Self, Box<dyn Error>> {
-        let inner = Network::new_at(server, name)?;
+        let inner = InnerNetwork::new_at(server, name)?;
         Ok(Self {
             inner: Rc::new(RefCell::new(inner)),
         })
@@ -57,7 +57,7 @@ where
     #[cfg(test)]
     pub fn new_with_store(name: &str, store: St) -> Self {
         Self {
-            inner: Rc::new(RefCell::new(Network::new_with_store(name, store))),
+            inner: Rc::new(RefCell::new(InnerNetwork::new_with_store(name, store))),
         }
     }
 
@@ -87,7 +87,7 @@ where
     }
 }
 
-pub struct Network<C = Connection, St = FsStore, Se = SendChannel>
+pub struct InnerNetwork<C = Connection, St = FsStore, Se = SendChannel>
 where
     C: Connect<Se>,
     St: Store + Default,
@@ -101,7 +101,7 @@ where
     pub send: Option<Se>,
 }
 
-impl<C, St, Se> Network<C, St, Se>
+impl<C, St, Se> InnerNetwork<C, St, Se>
 where
     C: Connect<Se>,
     St: Store + Default,
@@ -207,7 +207,7 @@ where
 }
 
 #[allow(clippy::from_over_into)]
-impl<C, St, Se> Into<Schema> for &mut Network<C, St, Se>
+impl<C, St, Se> Into<Schema> for &mut InnerNetwork<C, St, Se>
 where
     C: Connect<Se>,
     St: Store + Default,

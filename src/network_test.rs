@@ -11,7 +11,7 @@ mod network {
 
     use crate::{
         fs_store::Store,
-        network::{OuterNetwork, ValuePermission},
+        network::{Network, ValuePermission},
         network_test::{connection::WrappedSendMock, store::StoreMock},
         rpc::{RpcData, RpcMethod, RpcRequest, RpcStateData},
         schema::{DeviceSchema, Meta, MetaType, Schema},
@@ -21,31 +21,31 @@ mod network {
 
     #[test]
     fn should_start() {
-        let network: OuterNetwork<ConnectionMock, StoreMock, WrappedSendMock> =
-            OuterNetwork::new("test").unwrap();
+        let network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
         assert!(network.start().is_ok())
     }
 
     #[test]
     fn should_open_a_connection() {
-        let network: OuterNetwork<ConnectionMock, StoreMock, WrappedSendMock> =
-            OuterNetwork::new("test").unwrap();
+        let network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
         network.start().expect("Failed to start");
         assert!(*network.connection().is_started.borrow());
     }
 
     #[test]
     fn should_load_certificates_on_start() {
-        let network: OuterNetwork<ConnectionMock, StoreMock, WrappedSendMock> =
-            OuterNetwork::new("test").unwrap();
+        let network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
         network.start().expect("Failed to start");
         assert_eq!(DEFAULT_ID, &network.id().to_string())
     }
 
     #[test]
     fn should_save_schema_to_store_on_stop() {
-        let network: OuterNetwork<ConnectionMock, StoreMock, WrappedSendMock> =
-            OuterNetwork::new("test").unwrap();
+        let network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
         network.start().unwrap();
         network.stop().unwrap();
         assert_eq!(
@@ -66,16 +66,16 @@ mod network {
         schema.device.push(device);
         let store = StoreMock::default();
         store.save_schema(schema).unwrap();
-        let network: OuterNetwork<ConnectionMock, StoreMock, WrappedSendMock> =
-            OuterNetwork::new_with_store("test", store);
+        let network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new_with_store("test", store);
         assert!(!network.devices_is_empty());
         assert!(network.device_named("test_device").is_some())
     }
 
     #[test]
     fn should_create_new_device() {
-        let network: OuterNetwork<ConnectionMock, StoreMock, WrappedSendMock> =
-            OuterNetwork::new("test").unwrap();
+        let network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
 
         network.create_device("test device");
         assert!(network.device_named("test device").is_some())
@@ -89,8 +89,8 @@ mod network {
         let device_id = device.meta.id.clone();
         schema.device.push(device);
         store.save_schema(schema).unwrap();
-        let network: OuterNetwork<ConnectionMock, StoreMock, WrappedSendMock> =
-            OuterNetwork::new_with_store("test", store);
+        let network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new_with_store("test", store);
         assert_eq!(
             device_id,
             network.create_device("test_device").inner.borrow().id
@@ -99,16 +99,16 @@ mod network {
 
     #[test]
     fn should_create_multiple_devices() {
-        let network: OuterNetwork<ConnectionMock, StoreMock, WrappedSendMock> =
-            OuterNetwork::new("test").unwrap();
+        let network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
         let _device_1 = network.create_device("stuff");
         let _device_2 = network.create_device("other_stuff");
     }
 
     #[test]
     fn should_publish_itself_on_start() {
-        let network: OuterNetwork<ConnectionMock, StoreMock, WrappedSendMock> =
-            OuterNetwork::new("test").unwrap();
+        let network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
         network.start().unwrap();
         sleep(Duration::from_millis(50));
         assert!(network
@@ -127,8 +127,8 @@ mod network {
         let callback = move |_: String| {
             *callback_was_called_sent.lock().unwrap() = true;
         };
-        let network: OuterNetwork<ConnectionMock, StoreMock, WrappedSendMock> =
-            OuterNetwork::new("test").unwrap();
+        let network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
         let device = network.create_device("test_device");
         let state_id = device
             .create_value("test_value", ValuePermission::RW(Box::new(callback)))

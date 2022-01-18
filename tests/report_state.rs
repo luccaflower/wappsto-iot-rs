@@ -10,7 +10,7 @@ use wappsto_iot_rs::{connection::WappstoServers, network::*};
 #[ignore]
 fn should_report_state_change_to_wappsto() {
     create_network().expect("Failed to create network");
-    let network: OuterNetwork = OuterNetwork::new_at(WappstoServers::QA, "test").unwrap();
+    let network: Network = Network::new_at(WappstoServers::QA, "test").unwrap();
     let device = network.create_device("thing");
     let value = device.create_value("value", ValuePermission::R);
     let report_id = value.inner.report.as_ref().unwrap().id.clone();
