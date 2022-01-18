@@ -168,6 +168,15 @@ impl OuterDevice {
             inner: Rc::new(RefCell::new(device)),
         }
     }
+
+    pub fn create_value(&self, name: &str, permission: ValuePermission) -> OuterValue {
+        self.inner.borrow_mut().create_value(name, permission)
+    }
+
+    #[cfg(test)]
+    pub fn value_named(&self, name: &str) -> Option<OuterValue> {
+        self.inner.borrow().value_named(name).cloned()
+    }
 }
 
 impl From<Ref<'_, Device>> for DeviceSchema {
