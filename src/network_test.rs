@@ -208,7 +208,7 @@ pub mod value {
         let device = network.create_device("test device");
         let value = device.create_value("test value", ValuePermission::R);
         network.start().unwrap();
-        value.inner.borrow().report("test report");
+        value.report("test report");
         assert!(network
             .inner
             .borrow()

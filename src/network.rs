@@ -150,7 +150,6 @@ where
             .borrow_mut()
             .replace(self.connection.start(self.callbacks())?);
         self.publish()?;
-        eprintln!("network send is some: {}", self.send.borrow().is_some());
         Ok(())
     }
 
@@ -393,6 +392,10 @@ impl<Se: WrappedSend> Value<Se> {
         }
     }
 
+    pub fn report(&self, data: &str) {
+        self.inner.borrow().report(data)
+    }
+
     #[cfg(test)]
     pub fn control_id(&self) -> Uuid {
         self.inner
@@ -475,7 +478,6 @@ impl<Se: WrappedSend> InnerValue<Se> {
     }
 
     pub fn report(&self, data: &str) {
-        eprintln!("send: {:?}", self.send.borrow().is_some());
         self.send
             .borrow()
             .as_ref()

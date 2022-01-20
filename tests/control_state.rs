@@ -20,7 +20,7 @@ fn should_handle_incoming_control_state() {
         Network::new_at(wappsto_iot_rs::connection::WappstoServers::QA, "test").unwrap();
     let device = network.create_device("test_device");
     let value = device.create_value("test_value", ValuePermission::W(Box::new(callback)));
-    let control_id = value.control.as_ref().unwrap().id;
+    let control_id = value.inner.borrow().control.as_ref().unwrap().id;
     network.start().unwrap();
     let (username, password) = credentials();
     sleep(Duration::from_secs(1));
