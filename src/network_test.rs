@@ -115,6 +115,7 @@ mod network {
             .inner
             .borrow()
             .send
+            .borrow()
             .as_ref()
             .unwrap()
             .sent_to_server(&network.id().to_string()))
@@ -142,7 +143,7 @@ mod network {
             .unwrap()
             .receive(&control_state_rpc("1", state_id));
         network.start().unwrap();
-        network.inner.borrow().send.as_ref().unwrap();
+        network.inner.borrow().send.borrow().as_ref().unwrap();
         sleep(Duration::from_millis(50));
         assert!(*callback_was_called.lock().unwrap())
     }
@@ -165,11 +166,14 @@ pub mod device {
 
     use std::sync::{Arc, Mutex};
 
-    use crate::network::{InnerDevice, ValuePermission};
+    use crate::{
+        network::{Device, ValuePermission},
+        network_test::connection::WrappedSendMock,
+    };
 
     #[test]
     fn should_create_new_value() {
-        let mut device = InnerDevice::default();
+        let device: Device<WrappedSendMock> = Device::default();
         device.create_value("test", ValuePermission::R);
         assert!(device.value_named("test").is_some())
     }
@@ -178,7 +182,7 @@ pub mod device {
     fn should_register_callback_on_writable_values() {
         let callback_was_called = Arc::new(Mutex::new(false));
         let callback_was_called_sent = Arc::clone(&callback_was_called);
-        let mut device = InnerDevice::default();
+        let device: Device<WrappedSendMock> = Device::default();
         let callback = move |_: String| {
             *callback_was_called_sent.lock().unwrap() = true;
         };
@@ -186,6 +190,33 @@ pub mod device {
         value.control(String::new());
 
         assert!(*callback_was_called.lock().unwrap())
+    }
+}
+
+pub mod value {
+    use crate::network::{Network, ValuePermission};
+
+    use super::{
+        connection::{ConnectionMock, WrappedSendMock},
+        store::StoreMock,
+    };
+
+    #[test]
+    #[ignore]
+    fn should_report_state_change_to_server() {
+        let network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
+        let device = network.create_device("test device");
+        let value = device.create_value("test value", ValuePermission::R);
+        value.report("test report");
+        assert!(network
+            .inner
+            .borrow()
+            .send
+            .borrow()
+            .as_ref()
+            .unwrap()
+            .sent_to_server("test report"))
     }
 }
 

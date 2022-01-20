@@ -43,7 +43,7 @@ where
         })
     }
 
-    pub fn create_device(&self, name: &str) -> Device {
+    pub fn create_device(&self, name: &str) -> Device<Se> {
         self.inner.borrow_mut().create_device(name)
     }
 
@@ -73,7 +73,7 @@ where
     }
 
     #[cfg(test)]
-    pub fn device_named(&self, name: &str) -> Option<Device> {
+    pub fn device_named(&self, name: &str) -> Option<Device<Se>> {
         self.inner.borrow().devices.get(name).cloned()
     }
 
@@ -98,8 +98,8 @@ where
     pub id: Uuid,
     connection: Rc<C>,
     store: Rc<St>,
-    devices: HashMap<String, Device>,
-    pub send: Option<Se>,
+    devices: HashMap<String, Device<Se>>,
+    pub send: Rc<RefCell<Option<Se>>>,
 }
 
 impl<C, St, Se> InnerNetwork<C, St, Se>
@@ -122,17 +122,17 @@ where
             connection: Rc::new(C::new(certs, server)),
             store,
             devices,
-            send: None,
+            send: Rc::new(RefCell::new(None)),
         })
     }
 
-    pub fn create_device(&mut self, name: &str) -> Device {
+    pub fn create_device(&mut self, name: &str) -> Device<Se> {
         let device = self.devices.entry(String::from(name)).or_default();
         Device::clone(device)
     }
 
     pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
-        self.send = Some(self.connection.start(self.callbacks())?);
+        *self.send.borrow_mut() = Some(self.connection.start(self.callbacks())?);
         self.publish()?;
         Ok(())
     }
@@ -145,23 +145,27 @@ where
 
     fn publish(&mut self) -> Result<(), Box<dyn Error>> {
         let schema: Schema = self.into();
-        self.send.as_ref().unwrap().send(serde_json::to_string(
-            &RpcRequest::builder()
-                .method(RpcMethod::Post)
-                .on_type(RpcType::Network)
-                .data(RpcData::Schema(schema))
-                .create(),
-        )?)?;
+        self.send
+            .borrow()
+            .as_ref()
+            .unwrap()
+            .send(serde_json::to_string(
+                &RpcRequest::builder()
+                    .method(RpcMethod::Post)
+                    .on_type(RpcType::Network)
+                    .data(RpcData::Schema(schema))
+                    .create(),
+            )?)?;
         Ok(())
     }
 
-    fn parse_schema(store: &St, certs: &Certs) -> HashMap<String, Device> {
+    fn parse_schema(store: &St, certs: &Certs) -> HashMap<String, Device<Se>> {
         if let Some(schema) = store.load_schema(certs.id) {
             schema
                 .device
                 .into_iter()
                 .map(|d| (d.name.clone(), Device::from(d)))
-                .collect::<HashMap<String, Device>>()
+                .collect::<HashMap<String, Device<Se>>>()
         } else {
             HashMap::new()
         }
@@ -202,7 +206,7 @@ where
             store: Rc::new(store),
             devices,
             connection: Rc::new(C::new(certs, WappstoServers::default())),
-            send: None,
+            send: Rc::new(RefCell::new(None)),
         }
     }
 }
@@ -225,12 +229,12 @@ where
     }
 }
 
-pub struct Device {
-    pub inner: Rc<RefCell<InnerDevice>>,
+pub struct Device<Se: WrappedSend> {
+    pub inner: Rc<RefCell<InnerDevice<Se>>>,
 }
 
-impl Device {
-    pub fn new(device: InnerDevice) -> Self {
+impl<Se: WrappedSend> Device<Se> {
+    pub fn new(device: InnerDevice<Se>) -> Self {
         Self {
             inner: Rc::new(RefCell::new(device)),
         }
@@ -246,7 +250,7 @@ impl Device {
     }
 }
 
-impl Clone for Device {
+impl<Se: WrappedSend> Clone for Device<Se> {
     fn clone(&self) -> Self {
         Self {
             inner: Rc::clone(&self.inner),
@@ -254,8 +258,8 @@ impl Clone for Device {
     }
 }
 
-impl From<Ref<'_, InnerDevice>> for DeviceSchema {
-    fn from(device: Ref<InnerDevice>) -> Self {
+impl<Se: WrappedSend> From<Ref<'_, InnerDevice<Se>>> for DeviceSchema {
+    fn from(device: Ref<InnerDevice<Se>>) -> Self {
         let mut device_schema = DeviceSchema::new(&device.name, device.id);
         device_schema.value = device
             .values
@@ -266,36 +270,39 @@ impl From<Ref<'_, InnerDevice>> for DeviceSchema {
     }
 }
 
-impl From<Device> for DeviceSchema {
-    fn from(device: Device) -> Self {
+impl<Se: WrappedSend> From<Device<Se>> for DeviceSchema {
+    fn from(device: Device<Se>) -> Self {
         Self::from(device.inner.borrow())
     }
 }
 
-impl From<DeviceSchema> for Device {
+impl<Se: WrappedSend> From<DeviceSchema> for Device<Se> {
     fn from(schema: DeviceSchema) -> Self {
         Self::new(InnerDevice::from(schema))
     }
 }
 
-impl Default for Device {
+impl<Se: WrappedSend> Default for Device<Se> {
     fn default() -> Self {
         Self::new(InnerDevice::default())
     }
 }
 
-pub struct InnerDevice {
+#[allow(dead_code)]
+pub struct InnerDevice<Se: WrappedSend> {
     pub name: String,
     pub id: Uuid,
     values: HashMap<String, Value>,
+    send: Rc<RefCell<Option<Se>>>,
 }
 
-impl InnerDevice {
-    pub fn new(name: &str, id: Uuid) -> Self {
+impl<Se: WrappedSend> InnerDevice<Se> {
+    pub fn new(name: &str, id: Uuid, send: Rc<RefCell<Option<Se>>>) -> Self {
         Self {
             name: String::from(name),
             id,
             values: HashMap::new(),
+            send,
         }
     }
 
@@ -314,15 +321,16 @@ impl InnerDevice {
     }
 }
 
-impl Default for InnerDevice {
+impl<Se: WrappedSend> Default for InnerDevice<Se> {
     fn default() -> Self {
-        Self::new("", Uuid::new_v4())
+        Self::new("", Uuid::new_v4(), Rc::new(RefCell::new(None)))
     }
 }
 
-impl From<DeviceSchema> for InnerDevice {
+impl<Se: WrappedSend> From<DeviceSchema> for InnerDevice<Se> {
     fn from(schema: DeviceSchema) -> Self {
-        let mut device = InnerDevice::new(&schema.name, schema.meta.id);
+        let mut device =
+            InnerDevice::new(&schema.name, schema.meta.id, Rc::new(RefCell::new(None)));
         device.values = schema
             .value
             .into_iter()
@@ -332,8 +340,8 @@ impl From<DeviceSchema> for InnerDevice {
     }
 }
 
-impl From<&InnerDevice> for DeviceSchema {
-    fn from(device: &InnerDevice) -> Self {
+impl<Se: WrappedSend> From<&InnerDevice<Se>> for DeviceSchema {
+    fn from(device: &InnerDevice<Se>) -> Self {
         let mut device_schema = DeviceSchema::new(&device.name, device.id);
         device_schema.value = device
             .values
