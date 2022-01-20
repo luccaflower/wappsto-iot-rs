@@ -250,12 +250,12 @@ impl<Se: WrappedSend> Device<Se> {
         }
     }
 
-    pub fn create_value(&self, name: &str, permission: ValuePermission) -> Value {
+    pub fn create_value(&self, name: &str, permission: ValuePermission) -> Value<Se> {
         self.inner.borrow_mut().create_value(name, permission)
     }
 
     #[cfg(test)]
-    pub fn value_named(&self, name: &str) -> Option<Value> {
+    pub fn value_named(&self, name: &str) -> Option<Value<Se>> {
         self.inner.borrow().value_named(name).cloned()
     }
 }
@@ -302,7 +302,7 @@ impl<Se: WrappedSend> Default for Device<Se> {
 pub struct InnerDevice<Se: WrappedSend> {
     pub name: String,
     pub id: Uuid,
-    values: HashMap<String, Value>,
+    values: HashMap<String, Value<Se>>,
     pub send: Rc<RefCell<Option<Se>>>,
 }
 
@@ -317,7 +317,7 @@ impl<Se: WrappedSend> InnerDevice<Se> {
     }
 
     #[allow(clippy::mut_from_ref)]
-    pub fn create_value(&mut self, name: &str, permission: ValuePermission) -> Value {
+    pub fn create_value(&mut self, name: &str, permission: ValuePermission) -> Value<Se> {
         let value = Value::new(InnerValue::new(name, permission));
         self.values
             .entry(String::from(name))
@@ -326,7 +326,7 @@ impl<Se: WrappedSend> InnerDevice<Se> {
     }
 
     #[cfg(test)]
-    pub fn value_named(&self, key: &str) -> Option<&Value> {
+    pub fn value_named(&self, key: &str) -> Option<&Value<Se>> {
         self.values.get(key)
     }
 }
@@ -345,7 +345,7 @@ impl<Se: WrappedSend> From<DeviceSchema> for InnerDevice<Se> {
             .value
             .into_iter()
             .map(|v| (v.name.clone(), Value::new(InnerValue::from(v))))
-            .collect::<HashMap<String, Value>>();
+            .collect::<HashMap<String, Value<Se>>>();
         device
     }
 }
@@ -362,11 +362,11 @@ impl<Se: WrappedSend> From<&InnerDevice<Se>> for DeviceSchema {
     }
 }
 
-pub struct Value {
-    pub inner: Rc<InnerValue>,
+pub struct Value<Se: WrappedSend> {
+    pub inner: Rc<InnerValue<Se>>,
 }
 
-impl Clone for Value {
+impl<Se: WrappedSend> Clone for Value<Se> {
     fn clone(&self) -> Self {
         Self {
             inner: Rc::clone(&self.inner),
@@ -374,8 +374,8 @@ impl Clone for Value {
     }
 }
 
-impl Value {
-    pub fn new(value: InnerValue) -> Self {
+impl<Se: WrappedSend> Value<Se> {
+    pub fn new(value: InnerValue<Se>) -> Self {
         Self {
             inner: Rc::new(value),
         }
@@ -387,14 +387,14 @@ impl Value {
     }
 }
 
-impl Deref for Value {
-    type Target = InnerValue;
+impl<Se: WrappedSend> Deref for Value<Se> {
+    type Target = InnerValue<Se>;
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl From<ValueSchema> for Value {
+impl<Se: WrappedSend> From<ValueSchema> for Value<Se> {
     fn from(schema: ValueSchema) -> Self {
         Self {
             inner: Rc::new(InnerValue::from(schema)),
@@ -402,21 +402,23 @@ impl From<ValueSchema> for Value {
     }
 }
 
-impl From<&Value> for ValueSchema {
-    fn from(value: &Value) -> Self {
+impl<Se: WrappedSend> From<&Value<Se>> for ValueSchema {
+    fn from(value: &Value<Se>) -> Self {
         Self::from(value.inner.clone().as_ref())
     }
 }
 
-pub struct InnerValue {
+#[allow(dead_code)]
+pub struct InnerValue<Se: WrappedSend> {
     name: String,
     id: Uuid,
     permission: ValuePermission,
+    send: Rc<RefCell<Option<Se>>>,
     pub control: Option<ControlState>,
     pub report: Option<InnerReportState>,
 }
 
-impl InnerValue {
+impl<Se: WrappedSend> InnerValue<Se> {
     pub fn new(name: &str, permission: ValuePermission) -> Self {
         Self::new_with_id(name, permission, Uuid::new_v4())
     }
@@ -451,6 +453,7 @@ impl InnerValue {
             permission: permission_record,
             report,
             control,
+            send: Rc::new(RefCell::new(None)),
         }
     }
 
@@ -464,7 +467,7 @@ impl InnerValue {
     }
 }
 
-impl From<ValueSchema> for InnerValue {
+impl<Se: WrappedSend> From<ValueSchema> for InnerValue<Se> {
     fn from(schema: ValueSchema) -> Self {
         Self::new_with_id(
             &schema.name,
@@ -474,8 +477,8 @@ impl From<ValueSchema> for InnerValue {
     }
 }
 
-impl From<&InnerValue> for ValueSchema {
-    fn from(value: &InnerValue) -> Self {
+impl<Se: WrappedSend> From<&InnerValue<Se>> for ValueSchema {
+    fn from(value: &InnerValue<Se>) -> Self {
         let permission = &value.permission;
         let permission: Permission = permission.into();
         let mut values_schema =
