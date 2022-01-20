@@ -318,7 +318,7 @@ impl<Se: WrappedSend> InnerDevice<Se> {
 
     #[allow(clippy::mut_from_ref)]
     pub fn create_value(&mut self, name: &str, permission: ValuePermission) -> Value<Se> {
-        let value = Value::new(InnerValue::new(name, permission));
+        let value = Value::new(InnerValue::new(name, permission, Rc::clone(&self.send)));
         self.values
             .entry(String::from(name))
             .or_insert_with(|| Value::clone(&value));
@@ -419,11 +419,16 @@ pub struct InnerValue<Se: WrappedSend> {
 }
 
 impl<Se: WrappedSend> InnerValue<Se> {
-    pub fn new(name: &str, permission: ValuePermission) -> Self {
-        Self::new_with_id(name, permission, Uuid::new_v4())
+    pub fn new(name: &str, permission: ValuePermission, send: Rc<RefCell<Option<Se>>>) -> Self {
+        Self::new_with_id(name, permission, Uuid::new_v4(), send)
     }
 
-    pub fn new_with_id(name: &str, permission: ValuePermission, id: Uuid) -> Self {
+    pub fn new_with_id(
+        name: &str,
+        permission: ValuePermission,
+        id: Uuid,
+        send: Rc<RefCell<Option<Se>>>,
+    ) -> Self {
         let permission_record = match &permission {
             ValuePermission::R => ValuePermission::R,
             ValuePermission::RW(_) => ValuePermission::RW(Box::new(|_| {})),
@@ -453,7 +458,7 @@ impl<Se: WrappedSend> InnerValue<Se> {
             permission: permission_record,
             report,
             control,
-            send: Rc::new(RefCell::new(None)),
+            send,
         }
     }
 
@@ -473,6 +478,7 @@ impl<Se: WrappedSend> From<ValueSchema> for InnerValue<Se> {
             &schema.name,
             ValuePermission::from(schema.permission),
             schema.meta.id,
+            Rc::new(RefCell::new(None)),
         )
     }
 }
