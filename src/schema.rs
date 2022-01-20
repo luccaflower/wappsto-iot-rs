@@ -2,6 +2,8 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::rpc::DATE_FORMAT;
+
 ///A Schema represents the internal data structure of an IoT client as understood by Wappsto. These
 ///schemas are referred to as "networks", and they may contain devices, values for devices, as well
 ///as various kinds of metadata required by Wappsto. The full JSON schematic can be found
@@ -96,7 +98,7 @@ impl State {
         Self {
             data: String::new(),
             state_type,
-            timestamp: Utc::now().format("%Y-%m-%dT%H:%M:%S.%fZ").to_string(),
+            timestamp: Utc::now().format(DATE_FORMAT).to_string(),
             meta: Meta::new_with_uuid(id, MetaType::State),
         }
     }

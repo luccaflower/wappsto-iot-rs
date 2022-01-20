@@ -4,6 +4,8 @@ use uuid::Uuid;
 
 use crate::schema::{Meta, Schema};
 
+pub const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S.%fZ";
+
 #[derive(Serialize, Deserialize)]
 pub struct RpcRequest {
     jsonrpc: String,
@@ -77,6 +79,7 @@ pub enum RpcMethod {
 #[serde(rename_all = "lowercase")]
 pub enum RpcType {
     Network,
+    State,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -90,6 +93,7 @@ impl RpcParams {
         let url = String::from("/")
             + match rpc_type {
                 RpcType::Network => "network",
+                RpcType::State => "state",
             };
         Self { url, data }
     }
@@ -110,7 +114,6 @@ pub struct RpcStateData {
     pub meta: Meta,
 }
 
-#[cfg(test)]
 impl RpcStateData {
     pub fn new(data: &str, timestamp: DateTime<Utc>, meta: Meta) -> Self {
         Self {

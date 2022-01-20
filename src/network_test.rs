@@ -187,7 +187,7 @@ pub mod device {
             *callback_was_called_sent.lock().unwrap() = true;
         };
         let value = device.create_value("test_value", ValuePermission::RW(Box::new(callback)));
-        value.control(String::new());
+        value.inner.borrow().control(String::new());
 
         assert!(*callback_was_called.lock().unwrap())
     }
@@ -202,13 +202,13 @@ pub mod value {
     };
 
     #[test]
-    #[ignore]
     fn should_report_state_change_to_server() {
         let network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
             Network::new("test").unwrap();
         let device = network.create_device("test device");
         let value = device.create_value("test value", ValuePermission::R);
-        value.report("test report");
+        network.start().unwrap();
+        value.inner.borrow().report("test report");
         assert!(network
             .inner
             .borrow()

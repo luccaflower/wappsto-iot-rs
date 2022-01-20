@@ -1,3 +1,4 @@
+use chrono::Utc;
 use std::{
     cell::{Ref, RefCell},
     collections::HashMap,
@@ -13,8 +14,11 @@ use crate::{
     communication::CallbackMap,
     connection::{Connect, Connection, SendChannel, WappstoServers, WrappedSend},
     fs_store::{FsStore, Store},
-    rpc::{RpcData, RpcMethod, RpcRequest, RpcType},
-    schema::{DeviceSchema, NumberSchema, Permission, Schema, State, StateType, ValueSchema},
+    rpc::{RpcData, RpcMethod, RpcRequest, RpcStateData, RpcType},
+    schema::{
+        DeviceSchema, Meta, MetaType, NumberSchema, Permission, Schema, State, StateType,
+        ValueSchema,
+    },
 };
 
 pub struct Network<C = Connection, St = FsStore, Se = SendChannel>
@@ -142,8 +146,11 @@ where
     }
 
     pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
-        *self.send.borrow_mut() = Some(self.connection.start(self.callbacks())?);
+        self.send
+            .borrow_mut()
+            .replace(self.connection.start(self.callbacks())?);
         self.publish()?;
+        eprintln!("network send is some: {}", self.send.borrow().is_some());
         Ok(())
     }
 
@@ -187,6 +194,8 @@ where
             .fold(HashMap::new(), |mut all_callbacks, (_, device)| {
                 device.inner.borrow().values.iter().for_each(|(_, value)| {
                     value
+                        .inner
+                        .borrow()
                         .control
                         .as_ref()
                         .and_then(|c| all_callbacks.insert(c.inner.id, c.inner.callback.clone()));
@@ -318,11 +327,14 @@ impl<Se: WrappedSend> InnerDevice<Se> {
 
     #[allow(clippy::mut_from_ref)]
     pub fn create_value(&mut self, name: &str, permission: ValuePermission) -> Value<Se> {
-        let value = Value::new(InnerValue::new(name, permission, Rc::clone(&self.send)));
-        self.values
+        let value = self
+            .values
             .entry(String::from(name))
-            .or_insert_with(|| Value::clone(&value));
-        value
+            .and_modify(|v| v.inner.borrow_mut().send = Rc::clone(&self.send))
+            .or_insert_with(|| {
+                Value::new(InnerValue::new(name, permission, Rc::clone(&self.send)))
+            });
+        Value::clone(value)
     }
 
     #[cfg(test)]
@@ -363,7 +375,7 @@ impl<Se: WrappedSend> From<&InnerDevice<Se>> for DeviceSchema {
 }
 
 pub struct Value<Se: WrappedSend> {
-    pub inner: Rc<InnerValue<Se>>,
+    pub inner: Rc<RefCell<InnerValue<Se>>>,
 }
 
 impl<Se: WrappedSend> Clone for Value<Se> {
@@ -377,34 +389,34 @@ impl<Se: WrappedSend> Clone for Value<Se> {
 impl<Se: WrappedSend> Value<Se> {
     pub fn new(value: InnerValue<Se>) -> Self {
         Self {
-            inner: Rc::new(value),
+            inner: Rc::new(RefCell::new(value)),
         }
     }
 
     #[cfg(test)]
     pub fn control_id(&self) -> Uuid {
-        self.control.as_ref().unwrap().inner.id.clone()
-    }
-}
-
-impl<Se: WrappedSend> Deref for Value<Se> {
-    type Target = InnerValue<Se>;
-    fn deref(&self) -> &Self::Target {
-        &self.inner
+        self.inner
+            .borrow()
+            .control
+            .as_ref()
+            .unwrap()
+            .inner
+            .id
+            .clone()
     }
 }
 
 impl<Se: WrappedSend> From<ValueSchema> for Value<Se> {
     fn from(schema: ValueSchema) -> Self {
         Self {
-            inner: Rc::new(InnerValue::from(schema)),
+            inner: Rc::new(RefCell::new(InnerValue::from(schema))),
         }
     }
 }
 
 impl<Se: WrappedSend> From<&Value<Se>> for ValueSchema {
     fn from(value: &Value<Se>) -> Self {
-        Self::from(value.inner.clone().as_ref())
+        Self::from(value.inner.borrow())
     }
 }
 
@@ -413,7 +425,7 @@ pub struct InnerValue<Se: WrappedSend> {
     name: String,
     id: Uuid,
     permission: ValuePermission,
-    send: Rc<RefCell<Option<Se>>>,
+    pub send: Rc<RefCell<Option<Se>>>,
     pub control: Option<ControlState>,
     pub report: Option<InnerReportState>,
 }
@@ -462,8 +474,27 @@ impl<Se: WrappedSend> InnerValue<Se> {
         }
     }
 
-    pub fn report(&self, _data: &str) {
-        todo!("report state")
+    pub fn report(&self, data: &str) {
+        eprintln!("send: {:?}", self.send.borrow().is_some());
+        self.send
+            .borrow()
+            .as_ref()
+            .unwrap()
+            .send(
+                serde_json::to_string(
+                    &RpcRequest::builder()
+                        .method(RpcMethod::Put)
+                        .on_type(RpcType::State)
+                        .data(RpcData::Data(RpcStateData::new(
+                            data,
+                            Utc::now(),
+                            Meta::new_with_uuid(self.report.as_ref().unwrap().id, MetaType::State),
+                        )))
+                        .create(),
+                )
+                .unwrap(),
+            )
+            .unwrap();
     }
 
     #[cfg(test)]
@@ -483,8 +514,8 @@ impl<Se: WrappedSend> From<ValueSchema> for InnerValue<Se> {
     }
 }
 
-impl<Se: WrappedSend> From<&InnerValue<Se>> for ValueSchema {
-    fn from(value: &InnerValue<Se>) -> Self {
+impl<Se: WrappedSend> From<Ref<'_, InnerValue<Se>>> for ValueSchema {
+    fn from(value: Ref<InnerValue<Se>>) -> Self {
         let permission = &value.permission;
         let permission: Permission = permission.into();
         let mut values_schema =
