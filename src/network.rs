@@ -372,7 +372,7 @@ impl Value {
 impl Deref for Value {
     type Target = InnerValue;
     fn deref(&self) -> &Self::Target {
-        self.inner.as_ref()
+        &self.inner
     }
 }
 
@@ -442,14 +442,7 @@ impl InnerValue {
 
     #[cfg(test)]
     pub fn control(&self, data: String) {
-        (self
-            .control
-            .as_ref()
-            .unwrap()
-            .inner
-            .callback
-            .lock()
-            .unwrap())(data)
+        (self.control.as_ref().unwrap().callback.lock().unwrap())(data)
     }
 }
 
@@ -513,7 +506,7 @@ impl Into<Permission> for &ValuePermission {
 }
 
 pub struct ControlState {
-    pub inner: Rc<InnerControlState>,
+    inner: Rc<InnerControlState>,
 }
 
 impl Clone for ControlState {
@@ -532,15 +525,22 @@ impl ControlState {
     }
 }
 
+impl Deref for ControlState {
+    type Target = InnerControlState;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
 #[allow(clippy::type_complexity)]
 pub struct InnerControlState {
     pub id: Uuid,
     pub callback: Arc<Mutex<Box<dyn Fn(String) + Send + Sync>>>,
 }
 
-#[allow(dead_code)]
 pub struct ReportState {
-    pub inner: Rc<InnerReportState>,
+    inner: Rc<InnerReportState>,
 }
 
 impl ReportState {
@@ -548,6 +548,13 @@ impl ReportState {
         Self {
             inner: Rc::new(report_state),
         }
+    }
+}
+
+impl Deref for ReportState {
+    type Target = InnerReportState;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }
 
