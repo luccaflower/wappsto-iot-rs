@@ -2,6 +2,7 @@ use std::{
     cell::{Ref, RefCell},
     collections::HashMap,
     error::Error,
+    ops::Deref,
     rc::Rc,
     sync::{Arc, Mutex},
 };
@@ -172,7 +173,7 @@ where
             .fold(HashMap::new(), |mut all_callbacks, (_, device)| {
                 device.inner.borrow().values.iter().for_each(|(_, value)| {
                     value
-                        .control_state()
+                        .control
                         .as_ref()
                         .and_then(|c| all_callbacks.insert(c.inner.id, c.inner.callback.clone()));
                 });
@@ -362,22 +363,16 @@ impl Value {
         }
     }
 
-    pub fn report(&self, data: &str) {
-        self.inner.report(data)
-    }
-
-    pub fn control_state(&self) -> Option<ControlState> {
-        self.inner.control.clone()
-    }
-
-    #[cfg(test)]
-    pub fn control(&self, data: String) {
-        self.inner.control(data)
-    }
-
     #[cfg(test)]
     pub fn control_id(&self) -> Uuid {
-        self.inner.control.as_ref().unwrap().inner.id.clone()
+        self.control.as_ref().unwrap().inner.id.clone()
+    }
+}
+
+impl Deref for Value {
+    type Target = InnerValue;
+    fn deref(&self) -> &Self::Target {
+        self.inner.as_ref()
     }
 }
 
