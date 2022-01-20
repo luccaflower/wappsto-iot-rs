@@ -127,7 +127,17 @@ where
     }
 
     pub fn create_device(&mut self, name: &str) -> Device<Se> {
-        let device = self.devices.entry(String::from(name)).or_default();
+        let device = self
+            .devices
+            .entry(String::from(name))
+            .and_modify(|d| d.inner.borrow_mut().send = Rc::clone(&self.send))
+            .or_insert_with(|| {
+                Device::new(InnerDevice::new(
+                    name,
+                    Uuid::new_v4(),
+                    Rc::clone(&self.send),
+                ))
+            });
         Device::clone(device)
     }
 
@@ -293,7 +303,7 @@ pub struct InnerDevice<Se: WrappedSend> {
     pub name: String,
     pub id: Uuid,
     values: HashMap<String, Value>,
-    send: Rc<RefCell<Option<Se>>>,
+    pub send: Rc<RefCell<Option<Se>>>,
 }
 
 impl<Se: WrappedSend> InnerDevice<Se> {
