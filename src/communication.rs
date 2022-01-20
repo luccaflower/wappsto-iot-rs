@@ -6,8 +6,7 @@ use std::{
         mpsc::{self, Receiver, Sender},
         Arc, Mutex,
     },
-    thread::{self, sleep},
-    time::Duration,
+    thread,
 };
 use uuid::Uuid;
 
@@ -65,7 +64,7 @@ fn read_all_from<T: Read>(reader: &Arc<Mutex<T>>, mut buf: &mut [u8]) -> usize {
         let read = reader.lock().unwrap().read(&mut buf);
         match read {
             Ok(v) => break v,
-            Err(ref e) if e.kind() == ErrorKind::WouldBlock => sleep(Duration::from_millis(100)),
+            Err(ref e) if e.kind() == ErrorKind::WouldBlock => thread::yield_now(),
             Err(_) => (),
         }
     }
@@ -86,7 +85,7 @@ fn write_all_to<T: Write>(writer: &Arc<Mutex<T>>, msg: &[u8]) {
         let write = writer.lock().unwrap().write_all(msg);
         match write {
             Ok(_) => break,
-            Err(ref e) if e.kind() == ErrorKind::WouldBlock => sleep(Duration::from_millis(100)),
+            Err(ref e) if e.kind() == ErrorKind::WouldBlock => thread::yield_now(),
             Err(_) => break,
         }
     }
