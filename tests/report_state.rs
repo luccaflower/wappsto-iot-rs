@@ -12,7 +12,15 @@ fn should_report_state_change_to_wappsto() {
     let network: Network = Network::new_at(WappstoServers::QA, "test").unwrap();
     let device = network.create_device("thing");
     let value = device.create_value("value", ValuePermission::R);
-    let report_id = value.inner.borrow().report.as_ref().unwrap().id.clone();
+    let report_id = value
+        .inner
+        .lock()
+        .unwrap()
+        .report
+        .as_ref()
+        .unwrap()
+        .id
+        .clone();
     network.start().expect("Failed to start network");
     let (username, password) = credentials();
     value.report("5");
