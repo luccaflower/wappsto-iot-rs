@@ -187,7 +187,7 @@ pub mod device {
             *callback_was_called_sent.lock().unwrap() = true;
         };
         let value = device.create_value("test_value", ValuePermission::RW(Box::new(callback)));
-        value.inner.borrow().control(String::new());
+        value.inner.lock().unwrap().control(String::new());
 
         assert!(*callback_was_called.lock().unwrap())
     }

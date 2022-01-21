@@ -5,7 +5,7 @@ use std::{
     error::Error,
     ops::Deref,
     rc::Rc,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 use uuid::Uuid;
 
@@ -194,7 +194,8 @@ where
                 device.inner.borrow().values.iter().for_each(|(_, value)| {
                     value
                         .inner
-                        .borrow()
+                        .lock()
+                        .unwrap()
                         .control
                         .as_ref()
                         .and_then(|c| all_callbacks.insert(c.inner.id, c.inner.callback.clone()));
@@ -329,7 +330,7 @@ impl<Se: WrappedSend> InnerDevice<Se> {
         let value = self
             .values
             .entry(String::from(name))
-            .and_modify(|v| v.inner.borrow_mut().send = Rc::clone(&self.send))
+            .and_modify(|v| v.inner.lock().unwrap().send = Rc::clone(&self.send))
             .or_insert_with(|| {
                 Value::new(InnerValue::new(name, permission, Rc::clone(&self.send)))
             });
@@ -374,13 +375,13 @@ impl<Se: WrappedSend> From<&InnerDevice<Se>> for DeviceSchema {
 }
 
 pub struct Value<Se: WrappedSend> {
-    pub inner: Rc<RefCell<InnerValue<Se>>>,
+    pub inner: Arc<Mutex<InnerValue<Se>>>,
 }
 
 impl<Se: WrappedSend> Clone for Value<Se> {
     fn clone(&self) -> Self {
         Self {
-            inner: Rc::clone(&self.inner),
+            inner: Arc::clone(&self.inner),
         }
     }
 }
@@ -388,22 +389,23 @@ impl<Se: WrappedSend> Clone for Value<Se> {
 impl<Se: WrappedSend> Value<Se> {
     pub fn new(value: InnerValue<Se>) -> Self {
         Self {
-            inner: Rc::new(RefCell::new(value)),
+            inner: Arc::new(Mutex::new(value)),
         }
     }
 
     pub fn report(&self, data: &str) {
-        self.inner.borrow().report(data)
+        self.inner.lock().unwrap().report(data)
     }
 
     pub fn on_control(&self, callback: Box<dyn Fn(String) + Send + Sync>) {
-        self.inner.borrow().on_control(callback)
+        self.inner.lock().unwrap().on_control(callback)
     }
 
     #[cfg(test)]
     pub fn control_id(&self) -> Uuid {
         self.inner
-            .borrow()
+            .lock()
+            .unwrap()
             .control
             .as_ref()
             .unwrap()
@@ -416,14 +418,14 @@ impl<Se: WrappedSend> Value<Se> {
 impl<Se: WrappedSend> From<ValueSchema> for Value<Se> {
     fn from(schema: ValueSchema) -> Self {
         Self {
-            inner: Rc::new(RefCell::new(InnerValue::from(schema))),
+            inner: Arc::new(Mutex::new(InnerValue::from(schema))),
         }
     }
 }
 
 impl<Se: WrappedSend> From<&Value<Se>> for ValueSchema {
     fn from(value: &Value<Se>) -> Self {
-        Self::from(value.inner.borrow())
+        Self::from(value.inner.lock().unwrap())
     }
 }
 
@@ -530,8 +532,8 @@ impl<Se: WrappedSend> From<ValueSchema> for InnerValue<Se> {
     }
 }
 
-impl<Se: WrappedSend> From<Ref<'_, InnerValue<Se>>> for ValueSchema {
-    fn from(value: Ref<InnerValue<Se>>) -> Self {
+impl<Se: WrappedSend> From<MutexGuard<'_, InnerValue<Se>>> for ValueSchema {
+    fn from(value: MutexGuard<InnerValue<Se>>) -> Self {
         let permission = &value.permission;
         let permission: Permission = permission.into();
         let mut values_schema =
