@@ -103,7 +103,7 @@ where
     connection: Rc<C>,
     store: Rc<St>,
     devices: HashMap<String, Device<Se>>,
-    pub send: Rc<RefCell<Option<Se>>>,
+    pub send: Arc<Mutex<Option<Se>>>,
 }
 
 impl<C, St, Se> InnerNetwork<C, St, Se>
@@ -126,7 +126,7 @@ where
             connection: Rc::new(C::new(certs, server)),
             store,
             devices,
-            send: Rc::new(RefCell::new(None)),
+            send: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -134,12 +134,12 @@ where
         let device = self
             .devices
             .entry(String::from(name))
-            .and_modify(|d| d.inner.borrow_mut().send = Rc::clone(&self.send))
+            .and_modify(|d| d.inner.borrow_mut().send = Arc::clone(&self.send))
             .or_insert_with(|| {
                 Device::new(InnerDevice::new(
                     name,
                     Uuid::new_v4(),
-                    Rc::clone(&self.send),
+                    Arc::clone(&self.send),
                 ))
             });
         Device::clone(device)
@@ -147,7 +147,8 @@ where
 
     pub fn start(&mut self) -> Result<(), Box<dyn Error>> {
         self.send
-            .borrow_mut()
+            .lock()
+            .unwrap()
             .replace(self.connection.start(self.callbacks())?);
         self.publish()?;
         Ok(())
@@ -162,7 +163,8 @@ where
     fn publish(&mut self) -> Result<(), Box<dyn Error>> {
         let schema: Schema = self.into();
         self.send
-            .borrow()
+            .lock()
+            .unwrap()
             .as_ref()
             .unwrap()
             .send(serde_json::to_string(
@@ -225,7 +227,7 @@ where
             store: Rc::new(store),
             devices,
             connection: Rc::new(C::new(certs, WappstoServers::default())),
-            send: Rc::new(RefCell::new(None)),
+            send: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -312,11 +314,11 @@ pub struct InnerDevice<Se: WrappedSend> {
     pub name: String,
     pub id: Uuid,
     values: HashMap<String, Value<Se>>,
-    pub send: Rc<RefCell<Option<Se>>>,
+    pub send: Arc<Mutex<Option<Se>>>,
 }
 
 impl<Se: WrappedSend> InnerDevice<Se> {
-    pub fn new(name: &str, id: Uuid, send: Rc<RefCell<Option<Se>>>) -> Self {
+    pub fn new(name: &str, id: Uuid, send: Arc<Mutex<Option<Se>>>) -> Self {
         Self {
             name: String::from(name),
             id,
@@ -330,9 +332,9 @@ impl<Se: WrappedSend> InnerDevice<Se> {
         let value = self
             .values
             .entry(String::from(name))
-            .and_modify(|v| v.inner.lock().unwrap().send = Rc::clone(&self.send))
+            .and_modify(|v| v.inner.lock().unwrap().send = Arc::clone(&self.send))
             .or_insert_with(|| {
-                Value::new(InnerValue::new(name, permission, Rc::clone(&self.send)))
+                Value::new(InnerValue::new(name, permission, Arc::clone(&self.send)))
             });
         Value::clone(value)
     }
@@ -345,14 +347,13 @@ impl<Se: WrappedSend> InnerDevice<Se> {
 
 impl<Se: WrappedSend> Default for InnerDevice<Se> {
     fn default() -> Self {
-        Self::new("", Uuid::new_v4(), Rc::new(RefCell::new(None)))
+        Self::new("", Uuid::new_v4(), Arc::new(Mutex::new(None)))
     }
 }
 
 impl<Se: WrappedSend> From<DeviceSchema> for InnerDevice<Se> {
     fn from(schema: DeviceSchema) -> Self {
-        let mut device =
-            InnerDevice::new(&schema.name, schema.meta.id, Rc::new(RefCell::new(None)));
+        let mut device = InnerDevice::new(&schema.name, schema.meta.id, Arc::new(Mutex::new(None)));
         device.values = schema
             .value
             .into_iter()
@@ -433,13 +434,13 @@ pub struct InnerValue<Se: WrappedSend> {
     name: String,
     id: Uuid,
     permission: ValuePermission,
-    pub send: Rc<RefCell<Option<Se>>>,
+    pub send: Arc<Mutex<Option<Se>>>,
     pub control: Option<ControlState>,
     pub report: Option<InnerReportState>,
 }
 
 impl<Se: WrappedSend> InnerValue<Se> {
-    pub fn new(name: &str, permission: ValuePermission, send: Rc<RefCell<Option<Se>>>) -> Self {
+    pub fn new(name: &str, permission: ValuePermission, send: Arc<Mutex<Option<Se>>>) -> Self {
         Self::new_with_id(name, permission, Uuid::new_v4(), send)
     }
 
@@ -447,7 +448,7 @@ impl<Se: WrappedSend> InnerValue<Se> {
         name: &str,
         permission: ValuePermission,
         id: Uuid,
-        send: Rc<RefCell<Option<Se>>>,
+        send: Arc<Mutex<Option<Se>>>,
     ) -> Self {
         let permission_record = match &permission {
             ValuePermission::R => ValuePermission::R,
@@ -484,7 +485,8 @@ impl<Se: WrappedSend> InnerValue<Se> {
 
     pub fn report(&self, data: &str) {
         self.send
-            .borrow()
+            .lock()
+            .unwrap()
             .as_ref()
             .unwrap()
             .send(
@@ -527,7 +529,7 @@ impl<Se: WrappedSend> From<ValueSchema> for InnerValue<Se> {
             &schema.name,
             ValuePermission::from(schema.permission),
             schema.meta.id,
-            Rc::new(RefCell::new(None)),
+            Arc::new(Mutex::new(None)),
         )
     }
 }
@@ -582,7 +584,7 @@ impl Into<Permission> for &ValuePermission {
 }
 
 pub struct ControlState {
-    inner: Rc<InnerControlState>,
+    inner: Arc<InnerControlState>,
 }
 
 impl Clone for ControlState {
@@ -596,7 +598,7 @@ impl Clone for ControlState {
 impl ControlState {
     pub fn new(control_state: InnerControlState) -> Self {
         Self {
-            inner: Rc::new(control_state),
+            inner: Arc::new(control_state),
         }
     }
 }

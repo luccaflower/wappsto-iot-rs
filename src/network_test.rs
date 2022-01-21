@@ -115,7 +115,8 @@ mod network {
             .inner
             .borrow()
             .send
-            .borrow()
+            .lock()
+            .unwrap()
             .as_ref()
             .unwrap()
             .sent_to_server(&network.id().to_string()))
@@ -143,11 +144,18 @@ mod network {
             .unwrap()
             .receive(&control_state_rpc("1", state_id));
         network.start().unwrap();
-        network.inner.borrow().send.borrow().as_ref().unwrap();
+        network
+            .inner
+            .borrow()
+            .send
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap();
         sleep(Duration::from_millis(50));
         assert!(*callback_was_called.lock().unwrap())
     }
-    fn control_state_rpc(data: &str, id: Uuid) -> String {
+    pub fn control_state_rpc(data: &str, id: Uuid) -> String {
         serde_json::to_string(
             &RpcRequest::builder()
                 .method(RpcMethod::Put)
@@ -194,7 +202,12 @@ pub mod device {
 }
 
 pub mod value {
-    use crate::network::{Network, ValuePermission};
+    use std::{sync::Arc, thread::sleep, time::Duration};
+
+    use crate::{
+        network::{Network, ValuePermission},
+        network_test::network::control_state_rpc,
+    };
 
     use super::{
         connection::{ConnectionMock, WrappedSendMock},
@@ -213,7 +226,40 @@ pub mod value {
             .inner
             .borrow()
             .send
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .sent_to_server("test report"))
+    }
+
+    #[test]
+    fn should_reference_value_in_callback() {
+        let network: Network<ConnectionMock, StoreMock, WrappedSendMock> =
+            Network::new("test").unwrap();
+        let device = network.create_device("test device");
+        let value = device.create_value("test value", ValuePermission::RW(Box::new(|_| {})));
+        let value_arc = Arc::clone(&value.inner);
+        value.on_control(Box::new(move |data: String| {
+            value_arc.lock().unwrap().report(&data)
+        }));
+        let state_id = value.control_id();
+        network
+            .connection()
+            .stream
+            .borrow_mut()
+            .as_mut()
+            .unwrap()
+            .receive(&control_state_rpc("test report", state_id));
+        network.start().unwrap();
+        sleep(Duration::from_millis(50));
+
+        assert!(network
+            .inner
             .borrow()
+            .send
+            .lock()
+            .unwrap()
             .as_ref()
             .unwrap()
             .sent_to_server("test report"))
