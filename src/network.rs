@@ -423,7 +423,6 @@ impl<Se: WrappedSend> From<&Value<Se>> for ValueSchema {
     }
 }
 
-#[allow(dead_code)]
 pub struct InnerValue<Se: WrappedSend> {
     name: String,
     id: Uuid,
@@ -497,6 +496,17 @@ impl<Se: WrappedSend> InnerValue<Se> {
                 .unwrap(),
             )
             .unwrap();
+    }
+
+    pub fn on_control(&self, callback: Box<dyn Fn(String) + Send + Sync>) {
+        *self
+            .control
+            .as_ref()
+            .unwrap()
+            .callback
+            .as_ref()
+            .lock()
+            .unwrap() = callback
     }
 
     #[cfg(test)]
