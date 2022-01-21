@@ -396,6 +396,10 @@ impl<Se: WrappedSend> Value<Se> {
         self.inner.borrow().report(data)
     }
 
+    pub fn on_control(&self, callback: Box<dyn Fn(String) + Send + Sync>) {
+        self.inner.borrow().on_control(callback)
+    }
+
     #[cfg(test)]
     pub fn control_id(&self) -> Uuid {
         self.inner
